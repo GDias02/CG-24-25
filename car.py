@@ -14,35 +14,105 @@ FOV = 40.0
 #-Último tempo
 last_time = 0.0
 
+user_input = (0.0, 0.0)
+
+#-Contentores de texturas
 tex_car = None
 tex_terrain = None
 
+# Paths
+# -Carro
 CAR_MODEL_PATH = "models/car.obj"
 CAR_TEXTURE_PATH = "tex/car.jpg"
+# -Roda
+WHEEL_MODEL_PATH = "models/wheel.obj"
+# -Terreno
 TERRAIN_MODEL_PATH = "models/terrain.obj"
 TERRAIN_TEXTURE_PATH = "tex/terrain.jpg"
+
+
+car_pos = [0.0, 0.0, 0.0]
+car_theta = 0.0
+FORWARD_SPEED = 7.0
+ROTATE_SPEED = -90.0
+
+CAR_LIFT = 0.5
+
+FRONT_WHEEL_RADIUS = 0.5
+FRONT_WHEEL_OFFSET_X = 1.0
+FRONT_WHEEL_OFFSET_Z = 1.2
+
+REAR_WHEEL_RADIUS = 0.6
+REAR_WHEEL_OFFSET_X = 0.9
+REAR_WHEEL_OFFSET_Z = -1.2
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
     glColor3f(1.0, 1.0, 1.0)
     draw_mesh(CAR_MODEL_PATH, scale=1)
 
+def draw_wheel(radius):
+    glBindTexture(GL_TEXTURE_2D, tex_car)
+    glColor3f(1.0, 1.0, 1.0)
+    draw_mesh(WHEEL_MODEL_PATH, scale=radius)
+
 def draw_terrain():
     glBindTexture(GL_TEXTURE_2D, tex_terrain)
     glColor3f(1.0, 1.0, 1.0)
     draw_mesh(TERRAIN_MODEL_PATH, scale=1)
 
-def draw_sphere(color=(0.8, 0.85, 0.95)):
-    glColor3f(*color)
-    glutSolidSphere(1.0, 24, 24)
-
-def geo_star():
-    draw_sphere((0.95, 0.75, 0.35))
-
 def tf_scale(sx, sy, sz):
     def _tf(node):
         glScalef(sx, sy, sz)
     return _tf
+
+def tf_translate(x, y, z):
+    def _tf(node):
+        glTranslatef(x, y, z)
+    return _tf
+
+def tf_rotate_y(theta):
+    def _tf(node):
+        glRotatef(theta, 0, 1, 0)
+    return _tf
+
+def move_car():
+    # return a transform function that uses the current car_pos/car_theta each frame
+    def _tf(node):
+        glTranslatef(car_pos[0], car_pos[1] + CAR_LIFT, car_pos[2])
+        glRotatef(car_theta, 0, 1, 0)
+    return _tf
+
+def move_wheel(x, y, z):
+    
+    def _tf(node):
+        global user_input
+        x_axis, y_axis = user_input
+        glTranslatef(x, y, z)
+        glRotatef(-x_axis * node.state.get('turn_factor', 1) * 30, 0, 1, 0)
+        glRotatef(node.state.get('rotation', 0), 1, 0, 0)
+    return _tf
+
+class Car:
+    def car_updater(self, node, dt):
+        global car_pos, car_theta, user_input
+        x, y = user_input
+        car_theta = car_theta + x * ROTATE_SPEED * dt * y
+        rad = math.radians(car_theta)
+        dir_x = math.sin(rad)
+        dir_z = math.cos(rad)
+        car_pos[0] += dir_x * y * FORWARD_SPEED * dt
+        car_pos[2] += dir_z * y * FORWARD_SPEED * dt
+        
+        node.state['pos'] = (car_pos[0], car_pos[1], car_pos[2])
+        node.state['theta'] = car_theta
+    
+    def wheel_updater(self, node, dt):
+        global user_input
+        radius = node.state.get('radius')
+        distance = FORWARD_SPEED * dt
+        rotation_angle = (distance / (2 * math.pi * radius)) * 360 * user_input[1]
+        node.state['rotation'] = node.state.get('rotation', 0) + rotation_angle
 
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
@@ -89,9 +159,38 @@ def build_scene():
 
     car = Node("Car",
                geom = draw_car,
-               transform=tf_scale(1.0, 1.0, 1.0))
+               transform=move_car(),
+               updater = Car().car_updater)
     
-    world.add(terrain, car)
+    wheel_f_r = Node("Wheel Front Right",
+                             geom = lambda: draw_wheel(FRONT_WHEEL_RADIUS),
+                             updater=Car().wheel_updater,
+                             transform = move_wheel(FRONT_WHEEL_OFFSET_X,
+                                                      FRONT_WHEEL_RADIUS-CAR_LIFT, FRONT_WHEEL_OFFSET_Z),
+                             state = {"radius" : FRONT_WHEEL_RADIUS, "turn_factor": 1.0})
+    
+    wheel_f_l = Node("Wheel Front Left",
+                             geom = lambda: draw_wheel(FRONT_WHEEL_RADIUS),
+                             updater=Car().wheel_updater,
+                             transform = move_wheel(-FRONT_WHEEL_OFFSET_X,
+                                                      FRONT_WHEEL_RADIUS-CAR_LIFT, FRONT_WHEEL_OFFSET_Z),
+                             state = {"radius" : FRONT_WHEEL_RADIUS, "turn_factor": 1.0})
+    
+    wheel_r_r = Node("Wheel Rear Right",
+                             geom = lambda: draw_wheel(REAR_WHEEL_RADIUS),
+                             updater=Car().wheel_updater,
+                             transform = move_wheel(REAR_WHEEL_OFFSET_X,
+                                                      REAR_WHEEL_RADIUS-CAR_LIFT, REAR_WHEEL_OFFSET_Z),
+                             state = {"radius" : REAR_WHEEL_RADIUS, "turn_factor": 0.0})
+    
+    wheel_r_l = Node("Wheel Rear Left",
+                             geom = lambda: draw_wheel(REAR_WHEEL_RADIUS),
+                             updater=Car().wheel_updater,
+                             transform = move_wheel(-REAR_WHEEL_OFFSET_X,
+                                                      REAR_WHEEL_RADIUS-CAR_LIFT, REAR_WHEEL_OFFSET_Z),
+                             state = {"radius" : REAR_WHEEL_RADIUS, "turn_factor": 0.0})
+    
+    world.add(terrain, car.add(wheel_f_r, wheel_f_l, wheel_r_r, wheel_r_l))
 
     return world
 
@@ -154,25 +253,37 @@ def display():
 
     glutSwapBuffers()
 
+_pressed_keys = set()
+
+def _recompute_user_input():
+    global user_input
+    x = 0.0
+    y = 0.0
+    if b'a' in _pressed_keys:
+        x -= 1.0
+    if b'd' in _pressed_keys:
+        x += 1.0
+    if b'w' in _pressed_keys:
+        y += 1.0
+    if b's' in _pressed_keys:
+        y -= 1.0
+    user_input = (x, y)
+
 def keyboard(key, x, y):
-    x_axis = 0.0
-    y_axis = 0.0
-    if key == b'\x1b':  # ESC
+    # add pressed key
+    _pressed_keys.add(key)
+    _recompute_user_input()
+    if key == b'\x1b':
         try:
             glutLeaveMainLoop()
         except Exception:
             sys.exit(0)
-    if key == b'w':
-        y_axis = y_axis + 1.0
-    if key == b's':
-        y_axis = y_axis - 1.0
-    if key == b'a':
-        x_axis = x_axis - 1.0
-    if key == b'd':
-        x_axis = x_axis + 1.0
-    
-    return (x_axis, y_axis)
 
+def keyboard_up(key, x, y):
+    # remove released key
+    if key in _pressed_keys:
+        _pressed_keys.remove(key)
+    _recompute_user_input()
 
 def idle():
     global last_time
@@ -194,7 +305,7 @@ def main():
 
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH)
     glutInitWindowSize(WIN_W, WIN_H)
-    glutCreateWindow(b"Grafo de Cena OO - Classic OpenGL")
+    glutCreateWindow(b"Car Project - Classic OpenGL")
 
     init_gl()
     SCENE = build_scene()
@@ -203,6 +314,7 @@ def main():
     glutReshapeFunc(reshape)
     glutIdleFunc(idle)
     glutKeyboardFunc(keyboard)
+    glutKeyboardUpFunc(keyboard_up)
     glutMainLoop()
 
 if __name__ == "__main__":
