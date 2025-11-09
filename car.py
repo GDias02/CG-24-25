@@ -26,6 +26,10 @@ CAR_MODEL_PATH = "models/car.obj"
 CAR_TEXTURE_PATH = "tex/car.jpg"
 # -Roda
 WHEEL_MODEL_PATH = "models/wheel.obj"
+# -Volante
+STEERING_WHEEL_MODEL_PATH = "models/steering_wheel.obj"
+# -Porta
+DOOR_MODEL_PATH = "models/door.obj"
 # -Terreno
 TERRAIN_MODEL_PATH = "models/terrain.obj"
 TERRAIN_TEXTURE_PATH = "tex/terrain.jpg"
