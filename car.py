@@ -10,7 +10,7 @@ from loaders_lib import *
 #-Janela dimensões
 WIN_W, WIN_H = 800, 600
 #-FOV
-FOV = 40.0
+FOV = 120.0
 #-Último tempo
 last_time = 0.0
 
@@ -42,7 +42,7 @@ FRONT_WHEEL_RADIUS = 0.5
 FRONT_WHEEL_OFFSET_X = 1.0
 FRONT_WHEEL_OFFSET_Z = 1.2
 
-REAR_WHEEL_RADIUS = 0.6
+REAR_WHEEL_RADIUS = 0.7
 REAR_WHEEL_OFFSET_X = 0.9
 REAR_WHEEL_OFFSET_Z = -1.2
 
@@ -77,7 +77,6 @@ def tf_rotate_y(theta):
     return _tf
 
 def move_car():
-    # return a transform function that uses the current car_pos/car_theta each frame
     def _tf(node):
         glTranslatef(car_pos[0], car_pos[1] + CAR_LIFT, car_pos[2])
         glRotatef(car_theta, 0, 1, 0)
