@@ -5,12 +5,13 @@ from OpenGL.GLUT import *
 from PIL import Image
 
 from loaders_lib import *
+from materials import *
 
 #Global vars
 #-Janela dimensões
 WIN_W, WIN_H = 800, 600
 #-FOV
-FOV = 120.0
+FOV = 60.0
 #-Último tempo
 last_time = 0.0
 
@@ -19,6 +20,19 @@ user_input = (0.0, 0.0)
 #-Contentores de texturas
 tex_car = None
 tex_terrain = None
+
+# Default material
+DEFAULT_MATERIAL = Material(
+    ambient=(0.2, 0.2, 0.2),
+    diffuse=(0.8, 0.8, 0.8),
+    specular=(0.0, 0.0, 0.0),
+    shininess=0.0
+)
+
+SHADER_PROGRAM = None
+CAR_MATERIAL = None
+WHEEL_MATERIAL = None
+TERRAIN_MATERIAL = None
 
 # Paths
 # -Carro
@@ -49,6 +63,7 @@ FRONT_WHEEL_OFFSET_Z = 1.2
 REAR_WHEEL_RADIUS = 0.7
 REAR_WHEEL_OFFSET_X = 0.9
 REAR_WHEEL_OFFSET_Z = -1.2
+
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
@@ -87,7 +102,6 @@ def move_car():
     return _tf
 
 def move_wheel(x, y, z):
-    
     def _tf(node):
         global user_input
         x_axis, y_axis = user_input
@@ -125,6 +139,7 @@ class Node:
         self.updater = updater      #será uma função (actualiza o state)
         self.state = state or {}    #parametros da função de update e transform
         self.children = []
+        self.material = self.state.get('material', None)
 
     #aqui acrescentam-se os filhos de cada nó
     def add(self, *kids):
@@ -144,8 +159,13 @@ class Node:
         glPushMatrix()
         if self.transform:
             self.transform(self)
+    
+        # Apply material (or default if none specified)
+        apply_material(self.material or DEFAULT_MATERIAL)
+    
         if self.geom:
             self.geom()
+    
         for c in self.children:
             c.draw()
         glPopMatrix()
@@ -157,47 +177,83 @@ def build_scene():
     world = Node("World")
 
     terrain = Node("Terrain",
-                   geom = draw_terrain,
-                   transform=tf_scale(1.0, 1.0, 1.0))
+                   geom=draw_terrain,
+                   transform=tf_scale(1.0, 1.0, 1.0),
+                   state={"material": TERRAIN_MATERIAL})
 
     car = Node("Car",
-               geom = draw_car,
+               geom=draw_car,
                transform=move_car(),
-               updater = Car().car_updater)
+               updater=Car().car_updater,
+               state={"material": CAR_MATERIAL})
     
     wheel_f_r = Node("Wheel Front Right",
-                             geom = lambda: draw_wheel(FRONT_WHEEL_RADIUS),
-                             updater=Car().wheel_updater,
-                             transform = move_wheel(FRONT_WHEEL_OFFSET_X,
-                                                      FRONT_WHEEL_RADIUS-CAR_LIFT, FRONT_WHEEL_OFFSET_Z),
-                             state = {"radius" : FRONT_WHEEL_RADIUS, "turn_factor": 1.0})
+                    geom=lambda: draw_wheel(FRONT_WHEEL_RADIUS),
+                    updater=Car().wheel_updater,
+                    transform=move_wheel(FRONT_WHEEL_OFFSET_X,
+                                      FRONT_WHEEL_RADIUS-CAR_LIFT, 
+                                      FRONT_WHEEL_OFFSET_Z),
+                    state={"radius": FRONT_WHEEL_RADIUS, 
+                          "turn_factor": 1.0,
+                          "material": WHEEL_MATERIAL})
     
     wheel_f_l = Node("Wheel Front Left",
-                             geom = lambda: draw_wheel(FRONT_WHEEL_RADIUS),
-                             updater=Car().wheel_updater,
-                             transform = move_wheel(-FRONT_WHEEL_OFFSET_X,
-                                                      FRONT_WHEEL_RADIUS-CAR_LIFT, FRONT_WHEEL_OFFSET_Z),
-                             state = {"radius" : FRONT_WHEEL_RADIUS, "turn_factor": 1.0})
+                    geom=lambda: draw_wheel(FRONT_WHEEL_RADIUS),
+                    updater=Car().wheel_updater,
+                    transform=move_wheel(-FRONT_WHEEL_OFFSET_X,
+                                      FRONT_WHEEL_RADIUS-CAR_LIFT, 
+                                      FRONT_WHEEL_OFFSET_Z),
+                    state={"radius": FRONT_WHEEL_RADIUS, 
+                          "turn_factor": 1.0,
+                          "material": WHEEL_MATERIAL})
     
     wheel_r_r = Node("Wheel Rear Right",
-                             geom = lambda: draw_wheel(REAR_WHEEL_RADIUS),
-                             updater=Car().wheel_updater,
-                             transform = move_wheel(REAR_WHEEL_OFFSET_X,
-                                                      REAR_WHEEL_RADIUS-CAR_LIFT, REAR_WHEEL_OFFSET_Z),
-                             state = {"radius" : REAR_WHEEL_RADIUS, "turn_factor": 0.0})
+                    geom=lambda: draw_wheel(REAR_WHEEL_RADIUS),
+                    updater=Car().wheel_updater,
+                    transform=move_wheel(REAR_WHEEL_OFFSET_X,
+                                      REAR_WHEEL_RADIUS-CAR_LIFT, 
+                                      REAR_WHEEL_OFFSET_Z),
+                    state={"radius": REAR_WHEEL_RADIUS, 
+                          "turn_factor": 0.0,
+                          "material": WHEEL_MATERIAL})
     
     wheel_r_l = Node("Wheel Rear Left",
-                             geom = lambda: draw_wheel(REAR_WHEEL_RADIUS),
-                             updater=Car().wheel_updater,
-                             transform = move_wheel(-REAR_WHEEL_OFFSET_X,
-                                                      REAR_WHEEL_RADIUS-CAR_LIFT, REAR_WHEEL_OFFSET_Z),
-                             state = {"radius" : REAR_WHEEL_RADIUS, "turn_factor": 0.0})
+                    geom=lambda: draw_wheel(REAR_WHEEL_RADIUS),
+                    updater=Car().wheel_updater,
+                    transform=move_wheel(-REAR_WHEEL_OFFSET_X,
+                                      REAR_WHEEL_RADIUS-CAR_LIFT, 
+                                      REAR_WHEEL_OFFSET_Z),
+                    state={"radius": REAR_WHEEL_RADIUS, 
+                          "turn_factor": 0.0,
+                          "material": WHEEL_MATERIAL})
     
     world.add(terrain, car.add(wheel_f_r, wheel_f_l, wheel_r_r, wheel_r_l))
 
     return world
 
 SCENE = None
+
+def instance_materials():
+    global CAR_MATERIAL, WHEEL_MATERIAL, TERRAIN_MATERIAL
+
+    CAR_MATERIAL = Material(
+        ambient=(0.3, 0.3, 0.3),
+        diffuse=(0.8, 0.3, 0.3),
+        specular=(1.0, 1.0, 1.0),
+        shininess=100.0
+    )
+    WHEEL_MATERIAL = Material(
+        ambient=(0.3, .3, .3),
+        diffuse=(0.2, 0.2, 0.2),
+        specular=(0, 0, 0),
+        shininess=32.0
+    )
+    TERRAIN_MATERIAL = Material(
+        ambient=(0.2, 0.2, 0.2),
+        diffuse=(0.6, 0.6, 0.6),
+        specular=(0.1, 0.1, 0.1),
+        shininess=8.0
+    )
 
 # Setup do OpenGL
 def init_gl():
@@ -212,18 +268,19 @@ def init_gl():
     # Iluminação
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)
-    glLightfv(GL_LIGHT0, GL_POSITION, (0.45, 0.9, 0.35, 0.0)) 
     glLightfv(GL_LIGHT0, GL_POSITION, (0, 2, 1, 0.0))  # direccional
 
-    glLightfv(GL_LIGHT0, GL_DIFFUSE,  (1.0, 1.0, 1.0, 1.0))
+    glLightfv(GL_LIGHT0, GL_DIFFUSE,  (1.0, 1.0, 0.7, 1.0))
     glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.18, 0.18, 0.22, 1.0))
+
+    instance_materials()
 
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE)
     glEnable(GL_TEXTURE_2D)
 
-    glEnable(GL_COLOR_MATERIAL)
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-
+    # Disable color material to use explicit materials
+    glDisable(GL_COLOR_MATERIAL)
+    
     tex_car = load_texture(CAR_TEXTURE_PATH, repeat=False)
     tex_terrain = load_texture(TERRAIN_TEXTURE_PATH, repeat=True)
 
@@ -273,7 +330,6 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
-    # add pressed key
     _pressed_keys.add(key)
     _recompute_user_input()
     if key == b'\x1b':
@@ -283,7 +339,6 @@ def keyboard(key, x, y):
             sys.exit(0)
 
 def keyboard_up(key, x, y):
-    # remove released key
     if key in _pressed_keys:
         _pressed_keys.remove(key)
     _recompute_user_input()

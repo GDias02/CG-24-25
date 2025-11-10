@@ -109,14 +109,11 @@ def load_texture(path, repeat=True):
     tex_id = glGenTextures(1)
     glBindTexture(GL_TEXTURE_2D, tex_id)
 
-    # filtros  e  mipmaps (veremos esta parte mais tarde )
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT if repeat else GL_CLAMP_TO_EDGE)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT if repeat else GL_CLAMP_TO_EDGE)
 
-    # Criação de mipmaps com o GLU
     gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA, w, h, GL_RGBA, GL_UNSIGNED_BYTE, data)
 
-    #devolve o ID de cada textura carregada que será usado quando os objectos forem desenhados
     return tex_id
