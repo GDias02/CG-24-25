@@ -20,6 +20,8 @@ user_input = (0.0, 0.0)
 #-Contentores de texturas
 tex_car = None
 tex_terrain = None
+tex_wheel = None
+tex_steering_wheel = None
 
 # Default material
 DEFAULT_MATERIAL = Material(
@@ -40,10 +42,13 @@ CAR_MODEL_PATH = "models/car.obj"
 CAR_TEXTURE_PATH = "tex/car.jpg"
 # -Roda
 WHEEL_MODEL_PATH = "models/wheel.obj"
+WHEEL_TEXTURE_PATH = "tex/car.jpg"
 # -Volante
 STEERING_WHEEL_MODEL_PATH = "models/steering_wheel.obj"
+STEERING_WHEEL_TEXTURE_PATH = "tex/car.jpg"
 # -Porta
 DOOR_MODEL_PATH = "models/door.obj"
+DOOR_STEERING_WHEEL_MODEL_PATH = "tex/car.jpg"
 # -Terreno
 TERRAIN_MODEL_PATH = "models/terrain.obj"
 TERRAIN_TEXTURE_PATH = "tex/terrain.jpg"
@@ -64,6 +69,11 @@ REAR_WHEEL_RADIUS = 0.7
 REAR_WHEEL_OFFSET_X = 0.9
 REAR_WHEEL_OFFSET_Z = -1.2
 
+#STEERING_WHEEL_RADIUS = 0.5 #este é o scaling correto, abaixo está o de debugging
+STEERING_WHEEL_RADIUS = 2
+STEERING_WHEEL_OFFSET_X = 0.23
+STEERING_WHEEL_OFFSET_Y = 0.62
+STEERING_WHEEL_OFFSET_Z = 0.6
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
@@ -71,7 +81,7 @@ def draw_car():
     draw_mesh(CAR_MODEL_PATH, scale=1)
 
 def draw_wheel(radius):
-    glBindTexture(GL_TEXTURE_2D, tex_car)
+    glBindTexture(GL_TEXTURE_2D, tex_wheel)
     glColor3f(1.0, 1.0, 1.0)
     draw_mesh(WHEEL_MODEL_PATH, scale=radius)
 
@@ -79,6 +89,11 @@ def draw_terrain():
     glBindTexture(GL_TEXTURE_2D, tex_terrain)
     glColor3f(1.0, 1.0, 1.0)
     draw_mesh(TERRAIN_MODEL_PATH, scale=1)
+
+def draw_steering_wheel():
+    glBindTexture(GL_TEXTURE_2D, tex_steering_wheel)
+    glColor3f(1.0, 1.0, 1.0)
+    draw_mesh(STEERING_WHEEL_MODEL_PATH, scale=1)
 
 def tf_scale(sx, sy, sz):
     def _tf(node):
@@ -110,6 +125,18 @@ def move_wheel(x, y, z):
         glRotatef(node.state.get('rotation', 0), 1, 0, 0)
     return _tf
 
+def rotate_steering_wheel(x,y,z):
+    def _tf(node):
+        global user_input
+        radius = node.state.get('radius',0)
+        x_axis, y_axis = user_input
+        glTranslate(x,y,z)
+        glRotatef(-55.0 ,1,0,0)
+        glRotatef(node.state.get('rotation', 0), 0, 1, 0)
+        glScalef(radius,radius,radius)
+    return _tf
+
+
 class Car:
     def car_updater(self, node, dt):
         global car_pos, car_theta, user_input
@@ -130,6 +157,21 @@ class Car:
         distance = FORWARD_SPEED * dt
         rotation_angle = (distance / (2 * math.pi * radius)) * 360 * user_input[1]
         node.state['rotation'] = node.state.get('rotation', 0) + rotation_angle
+    
+    def steering_wheel_updater(self, node, dt):
+        def st_wheel_rotation_calc():
+            global user_input
+            x_axis, y_axis = user_input
+            old_rotation = node.state.get('rotation', 0)
+            max_rotation = 120
+            factor = 10     #increase alpha for a faster rotation
+            direction = -x_axis
+            alpha = direction * factor
+            if x_axis != 0.0:
+                return old_rotation + alpha
+        global user_input
+        x_axis, y_axis = user_input
+        node.state['rotation'] = node.state.get('rotation', 0) + (-x_axis) * 10 if abs(node.state.get('rotation', 0) + (-x_axis) * 10) < 120 else 120 if node.state.get('rotation',0) > 0 else -300
 
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
@@ -226,8 +268,27 @@ def build_scene():
                     state={"radius": REAR_WHEEL_RADIUS, 
                           "turn_factor": 0.0,
                           "material": WHEEL_MATERIAL})
+
+    steering_wheel = Node("Steering Wheel",
+                        geom=lambda: draw_steering_wheel(),
+                        updater=Car().steering_wheel_updater,
+                        transform=rotate_steering_wheel(STEERING_WHEEL_OFFSET_X,
+                                                        STEERING_WHEEL_OFFSET_Y,
+                                                        STEERING_WHEEL_OFFSET_Z),
+                    state={"radius": STEERING_WHEEL_RADIUS,
+                           "turn_factor": 0.0,
+                           "material": WHEEL_MATERIAL})
     
-    world.add(terrain, car.add(wheel_f_r, wheel_f_l, wheel_r_r, wheel_r_l))
+    world.add(
+        terrain, 
+        car.add(
+            wheel_f_r, 
+            wheel_f_l, 
+            wheel_r_r, 
+            wheel_r_l,
+            steering_wheel,
+        )
+    )
 
     return world
 
@@ -257,7 +318,7 @@ def instance_materials():
 
 # Setup do OpenGL
 def init_gl():
-    global tex_car, tex_terrain
+    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel
 
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_CULL_FACE)
@@ -283,6 +344,8 @@ def init_gl():
     
     tex_car = load_texture(CAR_TEXTURE_PATH, repeat=False)
     tex_terrain = load_texture(TERRAIN_TEXTURE_PATH, repeat=True)
+    tex_wheel = load_texture(WHEEL_TEXTURE_PATH, repeat=False)
+    tex_steering_wheel = load_texture(STEERING_WHEEL_TEXTURE_PATH, repeat=False)
 
 def reshape(w, h):
     global WIN_W, WIN_H, FOV
