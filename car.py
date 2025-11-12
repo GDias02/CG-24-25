@@ -69,8 +69,8 @@ REAR_WHEEL_RADIUS = 0.7
 REAR_WHEEL_OFFSET_X = 0.9
 REAR_WHEEL_OFFSET_Z = -1.2
 
-#STEERING_WHEEL_RADIUS = 0.5 #este é o scaling correto, abaixo está o de debugging
-STEERING_WHEEL_RADIUS = 2
+STEERING_WHEEL_RADIUS = 0.5 #este é o scaling correto, abaixo está o de debugging
+#STEERING_WHEEL_RADIUS = 2
 STEERING_WHEEL_OFFSET_X = 0.23
 STEERING_WHEEL_OFFSET_Y = 0.62
 STEERING_WHEEL_OFFSET_Z = 0.6
@@ -160,18 +160,27 @@ class Car:
     
     def steering_wheel_updater(self, node, dt):
         def st_wheel_rotation_calc():
+            """
+            Define the angle that the steering wheel should turn to
+            If the user isn't pressing a valid key (a or d) then 
+            the wheel returns to idle, else, follow user's instructions
+            and the wheel stops turning when it does an 120º rotation
+            """
             global user_input
             x_axis, y_axis = user_input
-            old_rotation = node.state.get('rotation', 0)
-            max_rotation = 120
-            factor = 10     #increase alpha for a faster rotation
+            rotation = node.state.get('rotation', 0) #current rotation of the st_wheel
+            max_rotation = 160  #wheel can't rotate more than max_rotation degrees
+            factor = 20.0         #increase factor for a faster rotation, should be a positive float
             direction = -x_axis
             alpha = direction * factor
-            if x_axis != 0.0:
-                return old_rotation + alpha
-        global user_input
-        x_axis, y_axis = user_input
-        node.state['rotation'] = node.state.get('rotation', 0) + (-x_axis) * 10 if abs(node.state.get('rotation', 0) + (-x_axis) * 10) < 120 else 120 if node.state.get('rotation',0) > 0 else -300
+            if x_axis != 0.0: #if increasing the rotation 'overflows' then set it to max_rotation, or -max_rotation in case curr rotation is < 0
+                return rotation + alpha if abs(rotation + alpha) < max_rotation else max_rotation if rotation > 0 else -max_rotation
+            #else, the user is idle, and the steering wheel goes to idle pos
+            direction = 1 if rotation < 0 else -1
+            alpha = factor * direction #the bellow interval is needed (we're working with floats)
+            return rotation if -factor < rotation and rotation < factor else rotation + alpha
+            
+        node.state['rotation'] = st_wheel_rotation_calc()
 
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
