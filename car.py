@@ -16,12 +16,14 @@ FOV = 60.0
 last_time = 0.0
 
 user_input = (0.0, 0.0)
+toggle_door = False
 
 #-Contentores de texturas
 tex_car = None
 tex_terrain = None
 tex_wheel = None
 tex_steering_wheel = None
+tex_door = None
 
 # Default material
 DEFAULT_MATERIAL = Material(
@@ -42,13 +44,13 @@ CAR_MODEL_PATH = "models/car.obj"
 CAR_TEXTURE_PATH = "tex/car.jpg"
 # -Roda
 WHEEL_MODEL_PATH = "models/wheel.obj"
-WHEEL_TEXTURE_PATH = "tex/car.jpg"
+WHEEL_TEXTURE_PATH = "tex/wheel-marked.png" #use tex/wheel-marked.png to get rid of the white marks
 # -Volante
 STEERING_WHEEL_MODEL_PATH = "models/steering_wheel.obj"
 STEERING_WHEEL_TEXTURE_PATH = "tex/car.jpg"
 # -Porta
 DOOR_MODEL_PATH = "models/door.obj"
-DOOR_STEERING_WHEEL_MODEL_PATH = "tex/car.jpg"
+DOOR_TEXTURE_PATH = "tex/car.jpg"
 # -Terreno
 TERRAIN_MODEL_PATH = "models/terrain.obj"
 TERRAIN_TEXTURE_PATH = "tex/terrain.jpg"
@@ -75,6 +77,24 @@ STEERING_WHEEL_OFFSET_X = 0.23
 STEERING_WHEEL_OFFSET_Y = 0.62
 STEERING_WHEEL_OFFSET_Z = 0.6
 
+CAR_L_LIGHT_OFFSET_X = 0.0
+CAR_L_LIGHT_OFFSET_Y = 0.0
+CAR_L_LIGHT_OFFSET_Z = 2.0
+
+CAR_R_LIGHT_OFFSET_X = 0.0
+CAR_R_LIGHT_OFFSET_Y = 0.0
+CAR_R_LIGHT_OFFSET_Z = 0.0
+
+DOOR_L_OFFSET_X = 0.9
+DOOR_L_OFFSET_Y = 0.0
+DOOR_L_OFFSET_Z = 1.0
+
+DOOR_R_OFFSET_X = -0.9
+DOOR_R_OFFSET_Y = 0.0
+DOOR_R_OFFSET_Z = 1.0
+
+
+
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
     glColor3f(1.0, 1.0, 1.0)
@@ -94,6 +114,34 @@ def draw_steering_wheel():
     glBindTexture(GL_TEXTURE_2D, tex_steering_wheel)
     glColor3f(1.0, 1.0, 1.0)
     draw_mesh(STEERING_WHEEL_MODEL_PATH, scale=1)
+
+def draw_door_left():
+    glBindTexture(GL_TEXTURE_2D, tex_door)
+    glColor3f(1.0, 1.0, 1.0)
+    draw_mesh(DOOR_MODEL_PATH, scale=1)
+
+#the door model is a left side one
+#we'll scale it (mirroring it) BUT,
+#this extra function is needed to avoid back face culling
+def draw_door_right(): 
+    glFrontFace(GL_CW) #key part
+    glBindTexture(GL_TEXTURE_2D, tex_door)
+    glColor3f(1.0, 1.0, 1.0)
+    draw_mesh(DOOR_MODEL_PATH, scale=1)
+    glFrontFace(GL_CCW) #key part
+    
+def draw_car_light():
+    # Posição do farol (em coordenadas do carro)
+    glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))  # Posicional
+    # Direção do feixe (apontar para a frente do carro)
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (1, -0.3, 1))
+    # Cor do farol
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, (1.0, 1.0, 0.8, 1.0))
+    glLightfv(GL_LIGHT1, GL_SPECULAR, (1.0, 1.0, 0.8, 1.0))
+    # Ângulo do feixe
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 25.0)
+    # Intensidade do feixe
+    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 90.0)
 
 def tf_scale(sx, sy, sz):
     def _tf(node):
@@ -125,7 +173,7 @@ def move_wheel(x, y, z):
         glRotatef(node.state.get('rotation', 0), 1, 0, 0)
     return _tf
 
-def rotate_steering_wheel(x,y,z):
+def move_steering_wheel(x,y,z):
     def _tf(node):
         global user_input
         radius = node.state.get('radius',0)
@@ -134,6 +182,22 @@ def rotate_steering_wheel(x,y,z):
         glRotatef(-55.0 ,1,0,0)
         glRotatef(node.state.get('rotation', 0), 0, 1, 0)
         glScalef(radius,radius,radius)
+    return _tf
+
+def move_car_light(x,y,z):
+    def _tf(node):
+        glTranslatef(x,y,z)
+        rotation = node.state.get('rotation',0)
+        glRotatef(rotation ,0,1,0)
+    return _tf
+
+def move_car_door(x,y,z):
+    def _tf(node):
+        glTranslatef(x,y,z)
+        rotation = node.state.get('rotation', 0)
+        glRotatef(rotation, 0, 1,0)
+        if node.state.get('side', 0) == 'right':
+            glScalef(-1.0, 1.0, 1.0)
     return _tf
 
 
@@ -181,6 +245,34 @@ class Car:
             return rotation if -factor < rotation and rotation < factor else rotation + alpha
             
         node.state['rotation'] = st_wheel_rotation_calc()
+
+    def door_updater(self, node, dt):
+        def door_rotation_calc():
+            open = node.state.get('open', 0)
+            rotation = node.state.get('rotation', 0)
+            orientation = node.state.get('side', 0)
+            factor = 15.0 if orientation == 'right' else -15.0
+            max_rotation = 50 if orientation == 'right' else -50
+            
+            #open the door
+            if open and orientation == 'right': #the door shall rotate only from 0 to 50 degrees
+                return rotation + factor if rotation + factor <= max_rotation else max_rotation
+            if open and orientation == 'left':
+                return rotation + factor if rotation + factor >= max_rotation else max_rotation
+            #close the door
+            if not open and orientation == 'right':
+                return rotation - factor if rotation - factor >= 0 else 0
+            if not open and orientation == 'left':
+                return rotation - factor if rotation - factor <= 0 else 0
+            
+            
+        #determine if should open or close
+        global toggle_door
+        
+        if toggle_door != node.state.get('toggle',0): #if toggle has changed:
+            node.state['toggle'] = toggle_door #This avoids constante door flickering
+            node.state['open'] = not node.state.get('open',0)
+        node.state['rotation'] = door_rotation_calc()
 
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
@@ -281,21 +373,60 @@ def build_scene():
     steering_wheel = Node("Steering Wheel",
                         geom=lambda: draw_steering_wheel(),
                         updater=Car().steering_wheel_updater,
-                        transform=rotate_steering_wheel(STEERING_WHEEL_OFFSET_X,
+                        transform=move_steering_wheel(STEERING_WHEEL_OFFSET_X,
                                                         STEERING_WHEEL_OFFSET_Y,
                                                         STEERING_WHEEL_OFFSET_Z),
                     state={"radius": STEERING_WHEEL_RADIUS,
                            "turn_factor": 0.0,
                            "material": WHEEL_MATERIAL})
     
+    car_light_l = Node("Car light",
+                    geom=lambda: draw_car_light(),
+                    updater=None,
+                    transform=move_car_light(CAR_L_LIGHT_OFFSET_X,
+                                            CAR_L_LIGHT_OFFSET_Y,
+                                            CAR_L_LIGHT_OFFSET_Z)) 
+                    #no state is needed
+
+    car_light_r = Node("Car light",
+                    geom=lambda: draw_car_light(),
+                    updater=None,
+                    transform=move_car_light(CAR_R_LIGHT_OFFSET_X,
+                                            CAR_R_LIGHT_OFFSET_Y,
+                                            CAR_R_LIGHT_OFFSET_Z)) 
+                    #no state is needed
+    
+    car_door_l = Node("Car Left Door",
+                      geom=lambda: draw_door_left(),
+                      updater=Car().door_updater,
+                      transform=move_car_door(DOOR_L_OFFSET_X,
+                                              DOOR_L_OFFSET_Y,
+                                              DOOR_L_OFFSET_Z),
+                      state={"side" : "left",
+                             "toggle": False,
+                             "rotation" : 0.0})
+
+    car_door_r = Node("Car Right Door",
+                      geom=lambda: draw_door_right(),
+                      updater=Car().door_updater,
+                      transform=move_car_door(DOOR_R_OFFSET_X,
+                                              DOOR_R_OFFSET_Y,
+                                              DOOR_R_OFFSET_Z),
+                      state={"side" : "right",
+                             "toggle": False,
+                             "rotation" : 0.0})
+    
     world.add(
         terrain, 
         car.add(
-            wheel_f_r, 
+            wheel_f_r,
             wheel_f_l, 
             wheel_r_r, 
             wheel_r_l,
             steering_wheel,
+            #car_light_l,
+            car_door_l,
+            car_door_r
         )
     )
 
@@ -327,7 +458,7 @@ def instance_materials():
 
 # Setup do OpenGL
 def init_gl():
-    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel
+    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door
 
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_CULL_FACE)
@@ -336,12 +467,18 @@ def init_gl():
     glEnable(GL_NORMALIZE)
 
     # Iluminação
+    """
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)
     glLightfv(GL_LIGHT0, GL_POSITION, (0, 2, 1, 0.0))  # direccional
 
     glLightfv(GL_LIGHT0, GL_DIFFUSE,  (1.0, 1.0, 0.7, 1.0))
     glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.18, 0.18, 0.22, 1.0))
+    """
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0) #luz ambiente
+    glEnable(GL_LIGHT1) #luz do farol esquerdo
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (0,0,0,0))
 
     instance_materials()
 
@@ -355,6 +492,7 @@ def init_gl():
     tex_terrain = load_texture(TERRAIN_TEXTURE_PATH, repeat=True)
     tex_wheel = load_texture(WHEEL_TEXTURE_PATH, repeat=False)
     tex_steering_wheel = load_texture(STEERING_WHEEL_TEXTURE_PATH, repeat=False)
+    tex_door = load_texture(DOOR_TEXTURE_PATH, repeat=False)
 
 def reshape(w, h):
     global WIN_W, WIN_H, FOV
@@ -402,8 +540,11 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
+    global toggle_door
     _pressed_keys.add(key)
     _recompute_user_input()
+    if key == b'p': #p de porta -> this is in this function, because it's on keypress, not keydown
+        toggle_door = not toggle_door
     if key == b'\x1b':
         try:
             glutLeaveMainLoop()
