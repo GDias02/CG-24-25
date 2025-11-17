@@ -11,7 +11,7 @@ from materials import *
 #-Janela dimensões
 WIN_W, WIN_H = 800, 600
 #-FOV
-FOV = 60.0
+FOV = 100.0
 #-Último tempo
 last_time = 0.0
 
@@ -134,7 +134,7 @@ def draw_car_light():
     # Posição do farol (em coordenadas do carro)
     glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))  # Posicional
     # Direção do feixe (apontar para a frente do carro)
-    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (1, -0.3, 1))
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, -0.2, 1))
     # Cor do farol
     glLightfv(GL_LIGHT1, GL_DIFFUSE, (1.0, 1.0, 0.8, 1.0))
     glLightfv(GL_LIGHT1, GL_SPECULAR, (1.0, 1.0, 0.8, 1.0))
@@ -142,6 +142,13 @@ def draw_car_light():
     glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 25.0)
     # Intensidade do feixe
     glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 90.0)
+
+def draw_light_marker():
+    glDisable(GL_LIGHTING)
+    glColor3f(1.0, 1.0, 0.0)  # bright yellow sphere
+    glutSolidSphere(0.2, 12, 12)
+    glEnable(GL_LIGHTING)
+
 
 def tf_scale(sx, sy, sz):
     def _tf(node):
@@ -274,6 +281,12 @@ class Car:
             node.state['open'] = not node.state.get('open',0)
         node.state['rotation'] = door_rotation_calc()
 
+def update_headlight(node, dt):
+    # apply light position in world space
+    glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, 0, 1))
+
+
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
         self.name = name
@@ -323,6 +336,12 @@ def build_scene():
                    geom=draw_terrain,
                    transform=tf_scale(1.0, 1.0, 1.0),
                    state={"material": TERRAIN_MATERIAL})
+    
+    point_light_marker = Node(
+        "Light2Marker",
+        geom=draw_light_marker,
+        transform=tf_translate(0.0, 0.5, 10.0)
+    )
 
     car = Node("Car",
                geom=draw_car,
@@ -380,13 +399,12 @@ def build_scene():
                            "turn_factor": 0.0,
                            "material": WHEEL_MATERIAL})
     
-    car_light_l = Node("Car light",
-                    geom=lambda: draw_car_light(),
-                    updater=None,
-                    transform=move_car_light(CAR_L_LIGHT_OFFSET_X,
+    car_light_l = Node("Headlight Left",
+                   updater=update_headlight,
+                   transform=move_car_light(CAR_L_LIGHT_OFFSET_X,
                                             CAR_L_LIGHT_OFFSET_Y,
-                                            CAR_L_LIGHT_OFFSET_Z)) 
-                    #no state is needed
+                                            CAR_L_LIGHT_OFFSET_Z),
+                   state={})
 
     car_light_r = Node("Car light",
                     geom=lambda: draw_car_light(),
@@ -417,7 +435,8 @@ def build_scene():
                              "rotation" : 0.0})
     
     world.add(
-        terrain, 
+        terrain,
+        point_light_marker,
         car.add(
             wheel_f_r,
             wheel_f_l, 
@@ -456,9 +475,35 @@ def instance_materials():
         shininess=8.0
     )
 
+def load_shader(vs_path, fs_path):
+    vs = glCreateShader(GL_VERTEX_SHADER)
+    fs = glCreateShader(GL_FRAGMENT_SHADER)
+
+    with open(vs_path, 'r') as f:
+        vs_src = f.read()
+    with open(fs_path, 'r') as f:
+        fs_src = f.read()
+
+    glShaderSource(vs, vs_src)
+    glShaderSource(fs, fs_src)
+
+    glCompileShader(vs)
+    glCompileShader(fs)
+
+    prog = glCreateProgram()
+    glAttachShader(prog, vs)
+    glAttachShader(prog, fs)
+    glLinkProgram(prog)
+
+    return prog
+
+
 # Setup do OpenGL
 def init_gl():
-    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door
+    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, SHADER_PROGRAM
+
+    SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
+    glUseProgram(SHADER_PROGRAM)
 
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_CULL_FACE)
@@ -467,18 +512,30 @@ def init_gl():
     glEnable(GL_NORMALIZE)
 
     # Iluminação
-    """
+    
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)
     glLightfv(GL_LIGHT0, GL_POSITION, (0, 2, 1, 0.0))  # direccional
 
     glLightfv(GL_LIGHT0, GL_DIFFUSE,  (1.0, 1.0, 0.7, 1.0))
     glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.18, 0.18, 0.22, 1.0))
-    """
+
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0) #luz ambiente
     glEnable(GL_LIGHT1) #luz do farol esquerdo
+    glEnable(GL_LIGHT2) #luz do farol esquerdo
     glLightfv(GL_LIGHT0, GL_AMBIENT, (0,0,0,0))
+
+
+# White test light above the floor
+    glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 2, -20.0, 1.0))   # 1.0 → point light
+    #glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0)) # pointing down
+    glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0)
+    glLightfv(GL_LIGHT2, GL_DIFFUSE,  (1.0, 1.0, 1.0, 1.0))
+    glLightfv(GL_LIGHT2, GL_SPECULAR, (1.0, 1.0, 1.0, 1.0))
+    glLightfv(GL_LIGHT2, GL_AMBIENT,  (0.0, 0.0, 0.0, 1.0))
+    #glLightf(GL_LIGHT2, GL_LINEAR_ATTENUATION,   0.0)
+    glLightf(GL_LIGHT2, GL_QUADRATIC_ATTENUATION, 0.01)
 
     instance_materials()
 
@@ -512,11 +569,14 @@ def display():
 
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
+
+    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
+
     # Câmara
-    gluLookAt(20.0, 12.0, 22.0,   0.0, 0.0, 0.0,   0.0, 1.0, 0.0)
+    gluLookAt(0.0, 20.0, 20.0,   0.0, 0.0, 0.0,   0.0, 1.0, 0.0)
     # Inclinação para melhor percepção de profundidade
-    glRotatef(18.0, 1, 0, 0)
-    glRotatef(28.0, 0, 1, 0)
+    #glRotatef(18.0, 1, 0, 0)
+    #glRotatef(28.0, 0, 1, 0)
 
     # Desenhar a cena inteira
     SCENE.draw()
