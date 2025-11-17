@@ -573,7 +573,7 @@ def display():
     glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
 
     # Câmara
-    gluLookAt(0.0, 20.0, 20.0,   0.0, 0.0, 0.0,   0.0, 1.0, 0.0)
+    update_camera(car_pos, car_theta)
     # Inclinação para melhor percepção de profundidade
     #glRotatef(18.0, 1, 0, 0)
     #glRotatef(28.0, 0, 1, 0)
@@ -629,6 +629,21 @@ def idle():
     SCENE.update(dt)
 
     glutPostRedisplay()
+
+def update_camera(car_pos, car_theta):
+    camera_distance = 10.0
+    camera_height = 8.0
+
+    rad = math.radians(car_theta)
+    cam_x = car_pos[0] - math.sin(rad) * camera_distance
+    cam_y = car_pos[1] + camera_height
+    cam_z = car_pos[2] - math.cos(rad) * camera_distance
+
+    gluLookAt(
+        cam_x, cam_y, cam_z,
+        car_pos[0], car_pos[1], car_pos[2],
+        0, 1, 0
+    )
 
 def main():
     global SCENE
