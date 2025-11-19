@@ -93,7 +93,9 @@ DOOR_R_OFFSET_X = -0.9
 DOOR_R_OFFSET_Y = 0.0
 DOOR_R_OFFSET_Z = 1.0
 
-
+camera_distance = 10.0
+camera_height = 8.0
+camera_mode = 0 #Há 3: 0 -> 3rd; 1 -> 1st; 2 -> free; os modos serão alterados no botão v
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
@@ -600,7 +602,7 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
-    global toggle_door
+    global toggle_door, camera_distance, camera_height, camera_mode
     _pressed_keys.add(key)
     _recompute_user_input()
     if key == b'p': #p de porta -> this is in this function, because it's on keypress, not keydown
@@ -610,6 +612,19 @@ def keyboard(key, x, y):
             glutLeaveMainLoop()
         except Exception:
             sys.exit(0)
+    if key == b'+':
+        camera_height = max(4.0, round(camera_height - 0.8, 1))
+        camera_distance = max(5.0, round(camera_distance - 1.0, 1))
+        print(camera_height , "\n" , camera_distance)
+
+    if key == b'-':
+        camera_height = min(12.0, round(camera_height + 0.8, 1))
+        camera_distance = min(15.0, round(camera_distance + 1.0, 1))
+        print(camera_height , "\n" , camera_distance)
+    
+    if key == b'v':
+        camera_mode = (camera_mode + 1) % 3
+    
 
 def keyboard_up(key, x, y):
     if key in _pressed_keys:
@@ -631,9 +646,8 @@ def idle():
     glutPostRedisplay()
 
 def update_camera(car_pos, car_theta):
-    camera_distance = 10.0
-    camera_height = 8.0
-
+    global camera_distance, camera_height
+    
     rad = math.radians(car_theta)
     cam_x = car_pos[0] - math.sin(rad) * camera_distance
     cam_y = car_pos[1] + camera_height
