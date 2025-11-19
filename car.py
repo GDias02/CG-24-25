@@ -101,13 +101,13 @@ DOOR_R_OFFSET_X = -0.9
 DOOR_R_OFFSET_Y = 0.0
 DOOR_R_OFFSET_Z = 1.0
 
-GARAGE_OFFSET_X = 3.0
+GARAGE_OFFSET_X = 0.0
 GARAGE_OFFSET_Y = 0.0
-GARAGE_OFFSET_Z = -2.0
+GARAGE_OFFSET_Z = 0.0
 
 GARAGE_DOOR_OFFSET_X = 0.0
 GARAGE_DOOR_OFFSET_Y = 0.0
-GARAGE_DOOR_OFFSET_Z = 1.0
+GARAGE_DOOR_OFFSET_Z = 0.0
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
@@ -234,7 +234,7 @@ def move_car_door(x,y,z):
 def move_garage(x,y,z):
     def _tf(node):
         glTranslatef(x,y,z)
-        glRotatef(-15, 0, 1, 0)
+        #glRotatef(0, 0, 1, 0)
     return _tf
 
 def move_garage_door(x,y,z):
