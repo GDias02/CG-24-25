@@ -17,6 +17,7 @@ last_time = 0.0
 
 user_input = (0.0, 0.0)
 toggle_door = False
+toggle_garage_door = False
 
 #-Contentores de texturas
 tex_car = None
@@ -24,6 +25,8 @@ tex_terrain = None
 tex_wheel = None
 tex_steering_wheel = None
 tex_door = None
+tex_garage = None
+tex_garage_door = None
 
 # Default material
 DEFAULT_MATERIAL = Material(
@@ -54,6 +57,12 @@ DOOR_TEXTURE_PATH = "tex/car.jpg"
 # -Terreno
 TERRAIN_MODEL_PATH = "models/terrain.obj"
 TERRAIN_TEXTURE_PATH = "tex/terrain.jpg"
+# -Garagem
+GARAGE_MODEL_PATH = "models/garage.obj"
+GARAGE_TEXTURE_PATH = "tex/car.jpg"
+# -PortaDaGaragem
+GARAGE_DOOR_MODEL_PATH = "models/garage_door.obj"
+GARAGE_DOOR_TEXTURE_PATH = "tex/car.jpg"
 
 
 car_pos = [0.0, 0.0, 0.0]
@@ -71,8 +80,7 @@ REAR_WHEEL_RADIUS = 0.7
 REAR_WHEEL_OFFSET_X = 0.9
 REAR_WHEEL_OFFSET_Z = -1.2
 
-STEERING_WHEEL_RADIUS = 0.5 #este é o scaling correto, abaixo está o de debugging
-#STEERING_WHEEL_RADIUS = 2
+STEERING_WHEEL_RADIUS = 0.5 
 STEERING_WHEEL_OFFSET_X = 0.23
 STEERING_WHEEL_OFFSET_Y = 0.62
 STEERING_WHEEL_OFFSET_Z = 0.6
@@ -93,7 +101,13 @@ DOOR_R_OFFSET_X = -0.9
 DOOR_R_OFFSET_Y = 0.0
 DOOR_R_OFFSET_Z = 1.0
 
+GARAGE_OFFSET_X = 3.0
+GARAGE_OFFSET_Y = 0.0
+GARAGE_OFFSET_Z = -2.0
 
+GARAGE_DOOR_OFFSET_X = 0.0
+GARAGE_DOOR_OFFSET_Y = 0.0
+GARAGE_DOOR_OFFSET_Z = 1.0
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
@@ -148,6 +162,16 @@ def draw_light_marker():
     glColor3f(1.0, 1.0, 0.0)  # bright yellow sphere
     glutSolidSphere(0.2, 12, 12)
     glEnable(GL_LIGHTING)
+
+def draw_garage():
+    glBindTexture(GL_TEXTURE_2D, tex_garage)
+    glColor3f(1.0,1.0,1.0)
+    draw_mesh(GARAGE_MODEL_PATH, scale=1)
+
+def draw_garage_door():
+    glBindTexture(GL_TEXTURE_2D, tex_garage_door)
+    glColor3f(1.0,1.0,1.0)
+    draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1)
 
 
 def tf_scale(sx, sy, sz):
@@ -207,6 +231,18 @@ def move_car_door(x,y,z):
             glScalef(-1.0, 1.0, 1.0)
     return _tf
 
+def move_garage(x,y,z):
+    def _tf(node):
+        glTranslatef(x,y,z)
+        glRotatef(-15, 0, 1, 0)
+    return _tf
+
+def move_garage_door(x,y,z):
+    def _tf(node):
+        glTranslatef(x,y,z)
+        rotation = node.state.get('rotation', 0)
+        glRotatef(rotation, 1, 0, 0) 
+    return _tf
 
 class Car:
     def car_updater(self, node, dt):
@@ -280,6 +316,25 @@ class Car:
             node.state['toggle'] = toggle_door #This avoids constante door flickering
             node.state['open'] = not node.state.get('open',0)
         node.state['rotation'] = door_rotation_calc()
+
+class Garage:
+    def door_updater(self, node, dt):
+        def door_rotation_cal():
+            open = node.state.get('open', 0)
+            rotation = node.state.get('rotation', 0)
+            factor = 10.0
+            max_rotation = 90
+
+            if open:
+                return rotation + factor if rotation + factor <= max_rotation else max_rotation
+            #else
+            return rotation - factor if rotation - factor >= 0 else 0
+
+        global toggle_garage_door
+        if toggle_garage_door != node.state.get('toggle', 0):
+            node.state['toggle'] = toggle_garage_door #this avoids door flickering
+            node.state['open'] = not node.state.get('open', 0)
+        node.state['rotation'] = door_rotation_cal()
 
 def update_headlight(node, dt):
     # apply light position in world space
@@ -399,21 +454,6 @@ def build_scene():
                            "turn_factor": 0.0,
                            "material": WHEEL_MATERIAL})
     
-    car_light_l = Node("Headlight Left",
-                   updater=update_headlight,
-                   transform=move_car_light(CAR_L_LIGHT_OFFSET_X,
-                                            CAR_L_LIGHT_OFFSET_Y,
-                                            CAR_L_LIGHT_OFFSET_Z),
-                   state={})
-
-    car_light_r = Node("Car light",
-                    geom=lambda: draw_car_light(),
-                    updater=None,
-                    transform=move_car_light(CAR_R_LIGHT_OFFSET_X,
-                                            CAR_R_LIGHT_OFFSET_Y,
-                                            CAR_R_LIGHT_OFFSET_Z)) 
-                    #no state is needed
-    
     car_door_l = Node("Car Left Door",
                       geom=lambda: draw_door_left(),
                       updater=Car().door_updater,
@@ -434,18 +474,36 @@ def build_scene():
                              "toggle": False,
                              "rotation" : 0.0})
     
+    garage = Node("Garage",
+                  geom=lambda: draw_garage(),
+                  transform=move_garage(GARAGE_OFFSET_X,
+                                        GARAGE_OFFSET_Y,
+                                        GARAGE_OFFSET_Z),
+                  state={})
+
+    garage_door = Node("Garage Door",
+                       geom=lambda: draw_garage_door(),
+                       updater=Garage().door_updater,
+                       transform=move_garage_door(GARAGE_DOOR_OFFSET_X,
+                                                  GARAGE_DOOR_OFFSET_Y,
+                                                  GARAGE_DOOR_OFFSET_Z),
+                       state={"toggle":False,
+                              "rotation" : 0.0,
+                              "open": False})
+
     world.add(
         terrain,
-        point_light_marker,
         car.add(
             wheel_f_r,
             wheel_f_l, 
             wheel_r_r, 
             wheel_r_l,
             steering_wheel,
-            #car_light_l,
             car_door_l,
             car_door_r
+        ),
+        garage.add(
+            garage_door
         )
     )
 
@@ -500,7 +558,7 @@ def load_shader(vs_path, fs_path):
 
 # Setup do OpenGL
 def init_gl():
-    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, SHADER_PROGRAM
+    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, tex_garage, tex_garage_door, SHADER_PROGRAM
 
     SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
     glUseProgram(SHADER_PROGRAM)
@@ -527,7 +585,7 @@ def init_gl():
     glLightfv(GL_LIGHT0, GL_AMBIENT, (0,0,0,0))
 
 
-# White test light above the floor
+    # White test light above the floor
     glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 2, -20.0, 1.0))   # 1.0 → point light
     #glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0)) # pointing down
     glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0)
@@ -550,6 +608,8 @@ def init_gl():
     tex_wheel = load_texture(WHEEL_TEXTURE_PATH, repeat=False)
     tex_steering_wheel = load_texture(STEERING_WHEEL_TEXTURE_PATH, repeat=False)
     tex_door = load_texture(DOOR_TEXTURE_PATH, repeat=False)
+    tex_garage = load_texture(GARAGE_TEXTURE_PATH, repeat = False)
+    tex_garage_door = load_texture(GARAGE_DOOR_TEXTURE_PATH, repeat = False)
 
 def reshape(w, h):
     global WIN_W, WIN_H, FOV
@@ -573,7 +633,9 @@ def display():
     glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
 
     # Câmara
-    update_camera(car_pos, car_theta)
+    #update_camera(car_pos, car_theta)
+    gluLookAt(0.0, 20.0, 20.0,   0.0, 0.0, 0.0,   0.0, 1.0, 0.0)
+
     # Inclinação para melhor percepção de profundidade
     #glRotatef(18.0, 1, 0, 0)
     #glRotatef(28.0, 0, 1, 0)
@@ -600,11 +662,13 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
-    global toggle_door
+    global toggle_door, toggle_garage_door
     _pressed_keys.add(key)
     _recompute_user_input()
     if key == b'p': #p de porta -> this is in this function, because it's on keypress, not keydown
         toggle_door = not toggle_door
+    if key == b'g':
+        toggle_garage_door = not toggle_garage_door
     if key == b'\x1b':
         try:
             glutLeaveMainLoop()
@@ -665,11 +729,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
