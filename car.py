@@ -103,7 +103,8 @@ DOOR_R_OFFSET_Z = 1.0
 
 camera_distance = 10.0
 camera_height = 8.0
-camera_mode = 0 #Há 3: 0 -> 3rd; 1 -> 1st; 2 -> free; os modos serão alterados no botão v
+cam_dx = 0
+cam_dz = 0
 
 GARAGE_OFFSET_X = 0.0
 GARAGE_OFFSET_Y = 0.0
@@ -384,6 +385,13 @@ class Node:
         for c in self.children:
             c.draw()
         glPopMatrix()
+    
+    def find(self, name):
+        for child in self.children:
+            if child.name == name:
+                return child
+            
+        return None
 
 
 
@@ -494,9 +502,13 @@ def build_scene():
                        state={"toggle":False,
                               "rotation" : 0.0,
                               "open": False})
+    camera = Node("Camera",
+                  updater=camera_updater,
+                  state={"mode": 0, "pos": (0, 0, 0), "look": (0, 0, 0)})
 
     world.add(
         terrain,
+        camera,
         car.add(
             wheel_f_r,
             wheel_f_l, 
@@ -637,8 +649,7 @@ def display():
     glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
 
     # Câmara
-    #update_camera(car_pos, car_theta)
-    gluLookAt(0.0, 20.0, 20.0,   0.0, 0.0, 0.0,   0.0, 1.0, 0.0)
+    update_camera()
 
     # Inclinação para melhor percepção de profundidade
     #glRotatef(18.0, 1, 0, 0)
@@ -666,7 +677,7 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
-    global toggle_door, camera_distance, camera_height, camera_mode
+    global toggle_door, camera_distance, camera_height
     
     _pressed_keys.add(key)
     _recompute_user_input()
@@ -679,6 +690,7 @@ def keyboard(key, x, y):
             glutLeaveMainLoop()
         except Exception:
             sys.exit(0)
+
     if key == b'+':
         camera_height = max(4.0, round(camera_height - 0.8, 1))
         camera_distance = max(5.0, round(camera_distance - 1.0, 1))
@@ -690,13 +702,38 @@ def keyboard(key, x, y):
         print(camera_height , "\n" , camera_distance)
     
     if key == b'v':
-        camera_mode = (camera_mode + 1) % 3
+        cam = SCENE.find("Camera").state
+        cam["mode"] = (cam["mode"] + 1) % 3
     
 
 def keyboard_up(key, x, y):
     if key in _pressed_keys:
         _pressed_keys.remove(key)
     _recompute_user_input()
+
+def special_up(key, x, y):
+    global cam_dx, cam_dz
+
+    if key in [GLUT_KEY_UP, GLUT_KEY_DOWN]:
+        cam_dz = 0
+    if key in [GLUT_KEY_RIGHT, GLUT_KEY_LEFT]:
+        cam_dx = 0
+
+
+def special_down(key, x, y):
+    global cam_dx, cam_dz
+
+    if SCENE.find("Camera").state["mode"] == 1:
+        if key == GLUT_KEY_UP:
+            cam_dz = 1
+        if key == GLUT_KEY_DOWN:
+            cam_dz = -1
+        if key == GLUT_KEY_RIGHT:
+            cam_dx = -1
+        if key == GLUT_KEY_LEFT:
+            cam_dx = 1
+
+
 
 def idle():
     global last_time
@@ -712,17 +749,50 @@ def idle():
 
     glutPostRedisplay()
 
-def update_camera(car_pos, car_theta):
+def camera_updater(node, dt):
+    global car_pos, car_theta
     global camera_distance, camera_height
-    
+    global cam_dx, cam_dz
+
+    mode = node.state["mode"]
     rad = math.radians(car_theta)
-    cam_x = car_pos[0] - math.sin(rad) * camera_distance
-    cam_y = car_pos[1] + camera_height
-    cam_z = car_pos[2] - math.cos(rad) * camera_distance
+
+    if(mode == 0):
+        cam_x = car_pos[0] - math.sin(rad) * camera_distance
+        cam_y = car_pos[1] + camera_height
+        cam_z = car_pos[2] - math.cos(rad) * camera_distance
+
+        node.state["pos"] = (cam_x, cam_y, cam_z)
+        node.state["look"] = (car_pos[0], car_pos[1], car_pos[2])
+
+    elif(mode == 1):
+        cam_pos = node.state["pos"]
+        cam_look = node.state["look"]
+
+        node.state["pos"] = (cam_pos[0] + cam_dx, cam_pos[1], cam_pos[2] + cam_dz)
+        node.state["look"] = (cam_look[0] + cam_dx, cam_look[1], cam_look[2] + cam_dz)
+
+    else:
+        cam_x = car_pos[0] + math.sin(rad) * 0.5
+        cam_y = car_pos[1] + 2.0
+        cam_z = car_pos[2] + math.cos(rad) * 0.5
+
+        look_x = car_pos[0] + math.sin(rad) * 5.0
+        look_y = car_pos[1] + 1.2
+        look_z = car_pos[2] + math.cos(rad) * 5.0
+
+        node.state["pos"] = (cam_x, cam_y, cam_z)
+        node.state["look"] = (look_x, look_y, look_z)
+
+
+def update_camera():
+    cam = SCENE.find("Camera").state
+    pos = cam["pos"]
+    look = cam["look"]
 
     gluLookAt(
-        cam_x, cam_y, cam_z,
-        car_pos[0], car_pos[1], car_pos[2],
+        pos[0], pos[1], pos[2],
+        look[0], look[1], look[2],
         0, 1, 0
     )
 
@@ -742,6 +812,8 @@ def main():
     glutIdleFunc(idle)
     glutKeyboardFunc(keyboard)
     glutKeyboardUpFunc(keyboard_up)
+    glutSpecialFunc(special_down)
+    glutSpecialUpFunc(special_up)
     glutMainLoop()
 
 if __name__ == "__main__":
