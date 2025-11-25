@@ -32,14 +32,16 @@ tex_garage_door = None
 DEFAULT_MATERIAL = Material(
     ambient=(0.2, 0.2, 0.2),
     diffuse=(0.8, 0.8, 0.8),
-    specular=(0.0, 0.0, 0.0),
-    shininess=0.0
+    specular=(0.6, 0.6, 0.6),
+    shininess=50.0
 )
 
 SHADER_PROGRAM = None
 CAR_MATERIAL = None
 WHEEL_MATERIAL = None
 TERRAIN_MATERIAL = None
+STEERING_WHEEL_MATERIAL = None
+GARAGE_MATERIAL = None
 
 # Paths
 # -Carro
@@ -69,6 +71,11 @@ car_pos = [0.0, 0.0, 0.0]
 car_theta = 0.0
 FORWARD_SPEED = 7.0
 ROTATE_SPEED = -90.0
+
+camera_distance = 10.0
+camera_height = 8.0
+cam_dx = 0
+cam_dz = 0
 
 CAR_LIFT = 0.5
 
@@ -101,11 +108,6 @@ DOOR_R_OFFSET_X = -0.9
 DOOR_R_OFFSET_Y = 0.0
 DOOR_R_OFFSET_Z = 1.0
 
-camera_distance = 10.0
-camera_height = 8.0
-cam_dx = 0
-cam_dz = 0
-
 GARAGE_OFFSET_X = 0.0
 GARAGE_OFFSET_Y = 0.0
 GARAGE_OFFSET_Z = 0.0
@@ -113,6 +115,10 @@ GARAGE_OFFSET_Z = 0.0
 GARAGE_DOOR_OFFSET_X = 0.0
 GARAGE_DOOR_OFFSET_Y = 0.0
 GARAGE_DOOR_OFFSET_Z = 0.0
+
+GARAGE_CEILING_OFFSET_X = 0.0
+GARAGE_CEILING_OFFSET_Y = -2.8
+GARAGE_CEILING_OFFSET_Z = -3.85
 
 def draw_car():
     glBindTexture(GL_TEXTURE_2D, tex_car)
@@ -247,6 +253,13 @@ def move_garage_door(x,y,z):
         glTranslatef(x,y,z)
         rotation = node.state.get('rotation', 0)
         glRotatef(rotation, 1, 0, 0) 
+    return _tf
+
+def move_garage_ceiling(x,y,z):
+    def _tf(node):
+        glTranslatef(x,y,z)
+        glRotatef(90, 1.0, 0.0, 0.0)
+        glScalef(1.6,2.65,1.5)
     return _tf
 
 class Car:
@@ -464,7 +477,7 @@ def build_scene():
                                                         STEERING_WHEEL_OFFSET_Z),
                     state={"radius": STEERING_WHEEL_RADIUS,
                            "turn_factor": 0.0,
-                           "material": WHEEL_MATERIAL})
+                           "material": STEERING_WHEEL_MATERIAL})
     
     car_door_l = Node("Car Left Door",
                       geom=lambda: draw_door_left(),
@@ -491,7 +504,7 @@ def build_scene():
                   transform=move_garage(GARAGE_OFFSET_X,
                                         GARAGE_OFFSET_Y,
                                         GARAGE_OFFSET_Z),
-                  state={})
+                  state={"material" : GARAGE_MATERIAL})
 
     garage_door = Node("Garage Door",
                        geom=lambda: draw_garage_door(),
@@ -502,6 +515,21 @@ def build_scene():
                        state={"toggle":False,
                               "rotation" : 0.0,
                               "open": False})
+
+    garage_ceiling = Node("Garage Ceiling",
+                          geom=lambda: draw_garage_door(),
+                          updater = None,
+                          transform=move_garage_ceiling(GARAGE_CEILING_OFFSET_X,
+                                                             GARAGE_CEILING_OFFSET_Y,
+                                                             GARAGE_CEILING_OFFSET_Z),
+                          state={"material" : GARAGE_MATERIAL})
+
+    garage_floor = Node("Garage Floor",
+                        geom=lambda: draw_terrain(),
+                        updater = None,
+                        transform=tf_translate(0.0,0.1,0.0),
+                        state={"material" : TERRAIN_MATERIAL})
+
     camera = Node("Camera",
                   updater=camera_updater,
                   state={"mode": 0, "pos": (0, 0, 0), "look": (0, 0, 0)})
@@ -519,7 +547,9 @@ def build_scene():
             car_door_r
         ),
         garage.add(
-            garage_door
+            garage_ceiling,
+            garage_door,
+            garage_floor
         )
     )
 
@@ -528,17 +558,17 @@ def build_scene():
 SCENE = None
 
 def instance_materials():
-    global CAR_MATERIAL, WHEEL_MATERIAL, TERRAIN_MATERIAL
+    global CAR_MATERIAL, WHEEL_MATERIAL, TERRAIN_MATERIAL, STEERING_WHEEL_MATERIAL, GARAGE_MATERIAL
 
     CAR_MATERIAL = Material(
-        ambient=(0.3, 0.3, 0.3),
+        ambient=(0.4, 0.4, 0.4),
         diffuse=(0.8, 0.3, 0.3),
         specular=(1.0, 1.0, 1.0),
         shininess=100.0
     )
     WHEEL_MATERIAL = Material(
         ambient=(0.9, .9, .9),
-        diffuse=(0.2, 0.2, 0.2),
+        diffuse=(0.4, 0.4, 0.4),
         specular=(0, 0, 0),
         shininess=32.0
     )
@@ -547,6 +577,18 @@ def instance_materials():
         diffuse=(0.6, 0.6, 0.6),
         specular=(0.1, 0.1, 0.1),
         shininess=8.0
+    )
+    STEERING_WHEEL_MATERIAL = Material(
+        ambient=(0.2,0.2,0.2),
+        diffuse=(0.8,0.8,0.8),
+        specular=(0.7,0.7,0.7),
+        shininess=10.0
+    )
+    GARAGE_MATERIAL = Material(
+        ambient=(0.1,0.1,0.1),
+        diffuse=(0.7,0.7,0.7),
+        specular=(0.0,0.0,0.0),
+        shininess= 0
     )
 
 def load_shader(vs_path, fs_path):
@@ -588,22 +630,24 @@ def init_gl():
     # Iluminação
     
     glEnable(GL_LIGHTING)
+
     glEnable(GL_LIGHT0)
-    glLightfv(GL_LIGHT0, GL_POSITION, (0, 2, 1, 0.0))  # direccional
-
-    glLightfv(GL_LIGHT0, GL_DIFFUSE,  (1.0, 1.0, 0.7, 1.0))
-    glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.18, 0.18, 0.22, 1.0))
-
-    glEnable(GL_LIGHTING)
-    glEnable(GL_LIGHT0) #luz ambiente
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.1, 0.1, 0.1, 1.0))
+    
+    glEnable(GL_LIGHT1)
+    """
     glEnable(GL_LIGHT1) #luz do farol esquerdo
-    glEnable(GL_LIGHT2) #luz do farol esquerdo
-    glLightfv(GL_LIGHT0, GL_AMBIENT, (0,0,0,0))
+    glLightfv(GL_LIGHT1, GL_POSITION, (0.0, 9.0, 0.0))
+    #glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0.0))
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
+    glLightfv(GL_LIGHT1, GL_SPECULAR, (0.9, 0.9, 0.9, 1.0))
+    glLightfv(GL_LIGHT1, GL_AMBIENT, (0.0, 0.0, 0.0, 1.0))
+    """
 
-
+    glEnable(GL_LIGHT2) #luz de cima
     # White test light above the floor
-    glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 2, -20.0, 1.0))   # 1.0 → point light
-    #glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0)) # pointing down
+    glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 8, 0.0, 1.0))   # 1.0 → point light
+    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -0.5, -1.0)) # pointing down
     glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0)
     glLightfv(GL_LIGHT2, GL_DIFFUSE,  (1.0, 1.0, 1.0, 1.0))
     glLightfv(GL_LIGHT2, GL_SPECULAR, (1.0, 1.0, 1.0, 1.0))
@@ -646,14 +690,10 @@ def display():
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
-    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
+    #glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
 
     # Câmara
     update_camera()
-
-    # Inclinação para melhor percepção de profundidade
-    #glRotatef(18.0, 1, 0, 0)
-    #glRotatef(28.0, 0, 1, 0)
 
     # Desenhar a cena inteira
     SCENE.draw()
@@ -694,12 +734,12 @@ def keyboard(key, x, y):
     if key == b'+':
         camera_height = max(4.0, round(camera_height - 0.8, 1))
         camera_distance = max(5.0, round(camera_distance - 1.0, 1))
-        print(camera_height , "\n" , camera_distance)
+        #print(camera_height , "\n" , camera_distance)
 
     if key == b'-':
         camera_height = min(12.0, round(camera_height + 0.8, 1))
         camera_distance = min(15.0, round(camera_distance + 1.0, 1))
-        print(camera_height , "\n" , camera_distance)
+        #print(camera_height , "\n" , camera_distance)
     
     if key == b'v':
         cam = SCENE.find("Camera").state

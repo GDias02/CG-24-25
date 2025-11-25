@@ -1,7 +1,7 @@
 # CG-24-25
 
 - Daniel Horta  | 1h
-- Guilherme Dias 57163 | 8h
+- Guilherme Dias 57163 | 9h30
 - Yan Panichkin 61815 | 1h30
 
 
@@ -19,3 +19,5 @@
     - Yan 
         - Materiais 
         - Modelo do volante e antena
+
+câmara is hard coded and doesn't follow the car, but 0.0
