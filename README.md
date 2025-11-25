@@ -1,7 +1,7 @@
 # CG-24-25
 
 - Daniel Horta  | 1h
-- Guilherme Dias 57163 | 7h30
+- Guilherme Dias 57163 | 8h
 - Yan Panichkin 61815 | 1h30
 
 

@@ -537,7 +537,7 @@ def instance_materials():
         shininess=100.0
     )
     WHEEL_MATERIAL = Material(
-        ambient=(0.3, .3, .3),
+        ambient=(0.9, .9, .9),
         diffuse=(0.2, 0.2, 0.2),
         specular=(0, 0, 0),
         shininess=32.0
@@ -677,7 +677,7 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
-    global toggle_door, camera_distance, camera_height
+    global toggle_door, toggle_garage_door, camera_distance, camera_height
     
     _pressed_keys.add(key)
     _recompute_user_input()
