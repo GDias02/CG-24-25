@@ -133,7 +133,7 @@ def draw_wheel(radius):
 def draw_terrain():
     glBindTexture(GL_TEXTURE_2D, tex_terrain)
     glColor3f(1.0, 1.0, 1.0)
-    draw_mesh(TERRAIN_MODEL_PATH, scale=1)
+    draw_mesh(TERRAIN_MODEL_PATH, scale=1, tex_repeat=(2.0,2.0)) 
 
 def draw_steering_wheel():
     glBindTexture(GL_TEXTURE_2D, tex_steering_wheel)
@@ -157,7 +157,7 @@ def draw_door_right():
     
 def draw_car_light():
     # Posição do farol (em coordenadas do carro)
-    glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))  # Posicional
+    glLightfv(GL_LIGHT1, GL_POSITION, (0, -1, 0, 1.0))  # Posicional
     # Direção do feixe (apontar para a frente do carro)
     glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, -0.2, 1))
     # Cor do farol
@@ -524,12 +524,6 @@ def build_scene():
                                                              GARAGE_CEILING_OFFSET_Z),
                           state={"material" : GARAGE_MATERIAL})
 
-    garage_floor = Node("Garage Floor",
-                        geom=lambda: draw_terrain(),
-                        updater = None,
-                        transform=tf_translate(0.0,0.1,0.0),
-                        state={"material" : TERRAIN_MATERIAL})
-
     camera = Node("Camera",
                   updater=camera_updater,
                   state={"mode": 0, "pos": (0, 0, 0), "look": (0, 0, 0)})
@@ -549,7 +543,6 @@ def build_scene():
         garage.add(
             garage_ceiling,
             garage_door,
-            garage_floor
         )
     )
 

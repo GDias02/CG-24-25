@@ -54,7 +54,7 @@ def read_obj(path):
                 faces.append(face)
     return {'verts': verts, 'norms': norms, 'texs': texs, 'faces': faces}
 
-def draw_mesh(path, scale=1.0):
+def draw_mesh(path, scale=1.0, tex_repeat=(1.0,1.0)):
     mesh = MESH_CACHE.get(path)
     if mesh is None:
         mesh = read_obj(path)
@@ -92,8 +92,10 @@ def draw_mesh(path, scale=1.0):
                 else:
                     glNormal3fv(face_normal)
                 if vti is not None and 0 <= vti < len(texs):
-                    glTexCoord2fv(texs[vti])
-                glVertex3fv(verts[vi])
+                    #glTexCoord2fv(texs[vti])
+                    tx, ty = texs[vti]
+                    glTexCoord2f(tx * tex_repeat[0], ty * tex_repeat[1])
+                    glVertex3fv(verts[vi])
     glEnd()
 
     glPopMatrix()
