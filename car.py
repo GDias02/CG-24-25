@@ -27,6 +27,8 @@ tex_steering_wheel = None
 tex_door = None
 tex_garage = None
 tex_garage_door = None
+#extras
+tex_fountain = None
 
 # Default material
 DEFAULT_MATERIAL = Material(
@@ -132,8 +134,8 @@ def draw_wheel(radius):
 
 def draw_terrain():
     glBindTexture(GL_TEXTURE_2D, tex_terrain)
-    glColor3f(1.0, 1.0, 1.0)
-    draw_mesh(TERRAIN_MODEL_PATH, scale=1, tex_repeat=(2.0,2.0)) 
+    glColor3f(1.0, 1.0, 1.0) #scale == size of floor; tex_repeat == how much the texture is reapeated 4 the floor
+    draw_mesh(TERRAIN_MODEL_PATH, scale=2, tex_repeat=(3.0,3.0)) 
 
 def draw_steering_wheel():
     glBindTexture(GL_TEXTURE_2D, tex_steering_wheel)
@@ -184,6 +186,11 @@ def draw_garage_door():
     glColor3f(1.0,1.0,1.0)
     draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1)
 
+#EXTRAS
+def draw_fountain():
+    #glBindTexture(GL_TEXTURE_2D, tex_fountain)
+    glColor3f(1.0,1.0,1.0)
+    draw_mesh("./models/Fountain.obj", scale=1)
 
 def tf_scale(sx, sy, sz):
     def _tf(node):
@@ -354,10 +361,10 @@ class Garage:
             node.state['open'] = not node.state.get('open', 0)
         node.state['rotation'] = door_rotation_cal()
 
-def update_headlight(node, dt):
-    # apply light position in world space
-    glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))
-    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, 0, 1))
+#def update_headlight(node, dt):
+#    # apply light position in world space
+#    glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))
+#    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, 0, 1))
 
 
 class Node:
@@ -417,12 +424,6 @@ def build_scene():
                    transform=tf_scale(1.0, 1.0, 1.0),
                    state={"material": TERRAIN_MATERIAL})
     
-    point_light_marker = Node(
-        "Light2Marker",
-        geom=draw_light_marker,
-        transform=tf_translate(0.0, 0.5, 10.0)
-    )
-
     car = Node("Car",
                geom=draw_car,
                transform=move_car(),
@@ -528,6 +529,16 @@ def build_scene():
                   updater=camera_updater,
                   state={"mode": 0, "pos": (0, 0, 0), "look": (0, 0, 0)})
 
+
+    #####EXTRAS
+
+    fountain = Node("Fountain",
+                    geom=lambda: draw_fountain(),
+                    updater=None,
+                    transform=tf_translate(10.0, 0.0, -4.0),
+                    state={"material" : DEFAULT_MATERIAL})
+
+
     world.add(
         terrain,
         camera,
@@ -543,7 +554,8 @@ def build_scene():
         garage.add(
             garage_ceiling,
             garage_door,
-        )
+        ),
+        fountain
     )
 
     return world
@@ -610,6 +622,8 @@ def load_shader(vs_path, fs_path):
 # Setup do OpenGL
 def init_gl():
     global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, tex_garage, tex_garage_door, SHADER_PROGRAM
+    #extras
+    global tex_fountain
 
     SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
     glUseProgram(SHADER_PROGRAM)
@@ -663,6 +677,8 @@ def init_gl():
     tex_door = load_texture(DOOR_TEXTURE_PATH, repeat=False)
     tex_garage = load_texture(GARAGE_TEXTURE_PATH, repeat = False)
     tex_garage_door = load_texture(GARAGE_DOOR_TEXTURE_PATH, repeat = False)
+    #extras:
+    tex_fountain = load_texture("./tex/Granite.jpg", repeat=False)
 
 def reshape(w, h):
     global WIN_W, WIN_H, FOV
@@ -718,26 +734,23 @@ def keyboard(key, x, y):
         toggle_door = not toggle_door
     if key == b'g':
         toggle_garage_door = not toggle_garage_door
-    if key == b'\x1b':
-        try:
-            glutLeaveMainLoop()
-        except Exception:
-            sys.exit(0)
+    if key == b'v':
+        cam = SCENE.find("Camera").state
+        cam["mode"] = (cam["mode"] + 1) % 3
 
     if key == b'+':
         camera_height = max(4.0, round(camera_height - 0.8, 1))
         camera_distance = max(5.0, round(camera_distance - 1.0, 1))
         #print(camera_height , "\n" , camera_distance)
-
     if key == b'-':
         camera_height = min(12.0, round(camera_height + 0.8, 1))
         camera_distance = min(15.0, round(camera_distance + 1.0, 1))
         #print(camera_height , "\n" , camera_distance)
-    
-    if key == b'v':
-        cam = SCENE.find("Camera").state
-        cam["mode"] = (cam["mode"] + 1) % 3
-    
+    if key == b'\x1b':
+        try:
+            glutLeaveMainLoop()
+        except Exception:
+            sys.exit(0)
 
 def keyboard_up(key, x, y):
     if key in _pressed_keys:

@@ -52,6 +52,7 @@ def read_obj(path):
                     vni = int(vp[2]) - 1 if len(vp) > 2 and vp[2] != '' else None
                     face.append((vi, vti, vni))
                 faces.append(face)
+    
     return {'verts': verts, 'norms': norms, 'texs': texs, 'faces': faces}
 
 def draw_mesh(path, scale=1.0, tex_repeat=(1.0,1.0)):
