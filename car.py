@@ -171,9 +171,6 @@ def draw_garage_door():
     glColor3f(1.0,1.0,1.0)
     draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1, tex_repeat=(3.0,3.0))
 
-def draw_light():
-    1 + 1
-
 def tf_scale(sx, sy, sz):
     def _tf(node):
         glScalef(sx, sy, sz)
@@ -514,7 +511,6 @@ def build_scene():
                               "open": False})
 
     overhead_light = Node("Scene's light",
-                          geom=lambda: draw_light(),
                           updater=Garage().light_updater,
                           transform=move_light(),
                           state={"on": True})
