@@ -18,6 +18,7 @@ last_time = 0.0
 user_input = (0.0, 0.0)
 toggle_door = False
 toggle_garage_door = False
+light_on = True
 
 #-Contentores de texturas
 tex_car = None
@@ -154,19 +155,6 @@ def draw_door_right():
     glColor3f(1.0, 1.0, 1.0)
     draw_mesh(DOOR_MODEL_PATH, scale=1)
     glFrontFace(GL_CCW) #key part
-    
-def draw_car_light():
-    # Posição do farol (em coordenadas do carro)
-    glLightfv(GL_LIGHT1, GL_POSITION, (0, -1, 0, 1.0))  # Posicional
-    # Direção do feixe (apontar para a frente do carro)
-    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, -0.2, 1))
-    # Cor do farol
-    glLightfv(GL_LIGHT1, GL_DIFFUSE, (1.0, 1.0, 0.8, 1.0))
-    glLightfv(GL_LIGHT1, GL_SPECULAR, (1.0, 1.0, 0.8, 1.0))
-    # Ângulo do feixe
-    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 25.0)
-    # Intensidade do feixe
-    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 90.0)
 
 def draw_garage():
     glBindTexture(GL_TEXTURE_2D, tex_garage)
@@ -183,6 +171,8 @@ def draw_garage_door():
     glColor3f(1.0,1.0,1.0)
     draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1, tex_repeat=(3.0,3.0))
 
+def draw_light():
+    1 + 1
 
 def tf_scale(sx, sy, sz):
     def _tf(node):
@@ -225,15 +215,6 @@ def move_steering_wheel(x,y,z):
         glScalef(radius,radius,radius)
     return _tf
 
-"""
-def move_car_light(x,y,z):
-    def _tf(node):
-        glTranslatef(x,y,z)
-        rotation = node.state.get('rotation',0)
-        glRotatef(rotation ,0,1,0)
-    return _tf
-"""
-
 def move_car_door(x,y,z):
     def _tf(node):
         glTranslatef(x,y,z)
@@ -261,6 +242,20 @@ def move_garage_ceiling(x,y,z):
         glTranslatef(x,y,z)
         glRotatef(90, 1.0, 0.0, 0.0)
         glScalef(1.6,2.65,1.5)
+    return _tf
+
+def move_light():
+    def _tf(node):
+        if node.state.get('on'):
+            glEnable(GL_LIGHT2) #luz da garagem
+            glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 50, 0.0, 0.0))   # 1.0 → point light
+            glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0)) # pointing down
+            glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0)
+            glLightfv(GL_LIGHT2, GL_DIFFUSE,  (0.7, 0.7, 0.7, 1.0))
+            glLightfv(GL_LIGHT2, GL_SPECULAR, (0.7, 0.7, 0.7, 1.0))
+            glLightfv(GL_LIGHT2, GL_AMBIENT,  (0.0, 0.0, 0.0, 1.0))
+        else:
+            glDisable(GL_LIGHT2)
     return _tf
 
 class Car:
@@ -354,12 +349,11 @@ class Garage:
             node.state['toggle'] = toggle_garage_door #this avoids door flickering
             node.state['open'] = not node.state.get('open', 0)
         node.state['rotation'] = door_rotation_cal()
-"""
-def update_headlight(node, dt):
-    # apply light position in world space
-    glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))
-    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, 0, 1))
-"""
+
+    def light_updater(self, node, dt):
+        global light_on
+        node.state['on'] = light_on
+        
 
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
@@ -519,12 +513,19 @@ def build_scene():
                               "rotation" : 0.0,
                               "open": False})
 
+    overhead_light = Node("Scene's light",
+                          geom=lambda: draw_light(),
+                          updater=Garage().light_updater,
+                          transform=move_light(),
+                          state={"on": True})
+    
     camera = Node("Camera",
                   updater=camera_updater,
                   state={"mode": 0, "pos": (0, 0, 0), "look": (0, 0, 0)})
 
     world.add(
         terrain,
+        overhead_light,
         #camera, -> depends upon car, needs to be updated after car
         car.add(
             wheel_f_r,
@@ -615,34 +616,7 @@ def init_gl():
     glCullFace(GL_BACK)
     glShadeModel(GL_SMOOTH)
     glEnable(GL_NORMALIZE)
-
-    # Iluminação
-    
     glEnable(GL_LIGHTING)
-
-    glEnable(GL_LIGHT0)
-    glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.1, 0.1, 0.1, 1.0))
-    
-    #glEnable(GL_LIGHT1)
-    """
-    glEnable(GL_LIGHT1) #luz do farol esquerdo
-    glLightfv(GL_LIGHT1, GL_POSITION, (0.0, 9.0, 0.0))
-    #glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0.0))
-    glLightfv(GL_LIGHT1, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
-    glLightfv(GL_LIGHT1, GL_SPECULAR, (0.9, 0.9, 0.9, 1.0))
-    glLightfv(GL_LIGHT1, GL_AMBIENT, (0.0, 0.0, 0.0, 1.0))
-    """
-
-    glEnable(GL_LIGHT2) #luz de cima
-    # White test light above the floor
-    glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 2, 2.0, 1.0))   # 1.0 → point light
-    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -0.5, -1.0)) # pointing down
-    glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0)
-    glLightfv(GL_LIGHT2, GL_DIFFUSE,  (1.0, 1.0, 1.0, 1.0))
-    glLightfv(GL_LIGHT2, GL_SPECULAR, (1.0, 1.0, 1.0, 1.0))
-    glLightfv(GL_LIGHT2, GL_AMBIENT,  (0.0, 0.0, 0.0, 1.0))
-    #glLightf(GL_LIGHT2, GL_LINEAR_ATTENUATION,   0.0)
-    glLightf(GL_LIGHT2, GL_QUADRATIC_ATTENUATION, 0.01)
 
     instance_materials()
 
@@ -682,6 +656,23 @@ def display():
     # Câmara
     update_camera()
 
+    # Iluminação
+    glEnable(GL_LIGHT0) #luz ambiente
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.0, 0.0, 0.0, 0.0))
+    glLightfv(GL_LIGHT0, GL_SPECULAR, (0.0, 0.0, 0.0, 0.0))
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.5, 0.5, 0.5, 1.0))
+    
+    glEnable(GL_LIGHT1) #luz da garagem
+    # White test light above the floor
+    glLightfv(GL_LIGHT1, GL_POSITION, (0.0, 3, 0.0, 0.2))   # 1.0 → point light
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0)) # pointing down
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 30.0)
+    glLightfv(GL_LIGHT1, GL_DIFFUSE,  (1.0, 1.0, 1.0, 1.0))
+    glLightfv(GL_LIGHT1, GL_SPECULAR, (1.0, 1.0, 1.0, 1.0))
+    glLightfv(GL_LIGHT1, GL_AMBIENT,  (0.0, 0.0, 0.0, 1.0))
+    #glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION,   0.0)
+    #glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.01)
+
     # Desenhar a cena inteira
     SCENE.draw()
 
@@ -704,7 +695,7 @@ def _recompute_user_input():
     user_input = (x, y)
 
 def keyboard(key, x, y):
-    global toggle_door, toggle_garage_door, camera_distance, camera_height
+    global toggle_door, toggle_garage_door, light_on, camera_distance, camera_height
     
     _pressed_keys.add(key)
     _recompute_user_input()
@@ -712,6 +703,8 @@ def keyboard(key, x, y):
         toggle_door = not toggle_door
     if key == b'g':
         toggle_garage_door = not toggle_garage_door
+    if key == b'l':
+        light_on = not light_on
     if key == b'\x1b':
         try:
             glutLeaveMainLoop()
@@ -721,11 +714,9 @@ def keyboard(key, x, y):
     if key == b'+':
         camera_height = max(4.0, round(camera_height - 0.8, 1))
         camera_distance = max(5.0, round(camera_distance - 1.0, 1))
-
     if key == b'-':
         camera_height = min(12.0, round(camera_height + 0.8, 1))
         camera_distance = min(15.0, round(camera_distance + 1.0, 1))
-    
     if key == b'v':
         cam = SCENE.find("Camera").state
         cam["mode"] = (cam["mode"] + 1) % 3
