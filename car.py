@@ -52,7 +52,7 @@ WHEEL_MODEL_PATH = "models/wheel.obj"
 WHEEL_TEXTURE_PATH = "tex/wheel-marked.png" #use tex/wheel-marked.png to get rid of the white marks
 # -Volante
 STEERING_WHEEL_MODEL_PATH = "models/steering_wheel.obj"
-STEERING_WHEEL_TEXTURE_PATH = "tex/car.jpg"
+STEERING_WHEEL_TEXTURE_PATH = "tex/steering-wheel.jpg"
 # -Porta
 DOOR_MODEL_PATH = "models/door.obj"
 DOOR_TEXTURE_PATH = "tex/car.jpg"
@@ -61,10 +61,10 @@ TERRAIN_MODEL_PATH = "models/terrain.obj"
 TERRAIN_TEXTURE_PATH = "tex/terrain.jpg"
 # -Garagem
 GARAGE_MODEL_PATH = "models/garage.obj"
-GARAGE_TEXTURE_PATH = "tex/car.jpg"
+GARAGE_TEXTURE_PATH = "tex/garage.jpg"
 # -PortaDaGaragem
 GARAGE_DOOR_MODEL_PATH = "models/garage_door.obj"
-GARAGE_DOOR_TEXTURE_PATH = "tex/car.jpg"
+GARAGE_DOOR_TEXTURE_PATH = "tex/garageDoor.jpg"
 
 
 car_pos = [0.0, 0.0, 0.0]
@@ -138,7 +138,7 @@ def draw_terrain():
 def draw_steering_wheel():
     glBindTexture(GL_TEXTURE_2D, tex_steering_wheel)
     glColor3f(1.0, 1.0, 1.0)
-    draw_mesh(STEERING_WHEEL_MODEL_PATH, scale=1)
+    draw_mesh(STEERING_WHEEL_MODEL_PATH, scale=1, tex_repeat=(1.5,1.5))
 
 def draw_door_left():
     glBindTexture(GL_TEXTURE_2D, tex_door)
@@ -168,21 +168,20 @@ def draw_car_light():
     # Intensidade do feixe
     glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 90.0)
 
-def draw_light_marker():
-    glDisable(GL_LIGHTING)
-    glColor3f(1.0, 1.0, 0.0)  # bright yellow sphere
-    glutSolidSphere(0.2, 12, 12)
-    glEnable(GL_LIGHTING)
-
 def draw_garage():
     glBindTexture(GL_TEXTURE_2D, tex_garage)
     glColor3f(1.0,1.0,1.0)
-    draw_mesh(GARAGE_MODEL_PATH, scale=1)
+    draw_mesh(GARAGE_MODEL_PATH, scale=1, tex_repeat=(20.0,20.0))
+
+def draw_garage_ceiling():
+    glBindTexture(GL_TEXTURE_2D, tex_garage)
+    glColor3f(1.0,1.0,1.0)
+    draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1, tex_repeat=(20.0,20.0))
 
 def draw_garage_door():
     glBindTexture(GL_TEXTURE_2D, tex_garage_door)
     glColor3f(1.0,1.0,1.0)
-    draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1)
+    draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1, tex_repeat=(3.0,3.0))
 
 
 def tf_scale(sx, sy, sz):
@@ -417,12 +416,6 @@ def build_scene():
                    transform=tf_scale(1.0, 1.0, 1.0),
                    state={"material": TERRAIN_MATERIAL})
     
-    point_light_marker = Node(
-        "Light2Marker",
-        geom=draw_light_marker,
-        transform=tf_translate(0.0, 0.5, 10.0)
-    )
-
     car = Node("Car",
                geom=draw_car,
                transform=move_car(),
@@ -506,6 +499,14 @@ def build_scene():
                                         GARAGE_OFFSET_Z),
                   state={"material" : GARAGE_MATERIAL})
 
+    garage_ceiling = Node("Garage Ceiling",
+                          geom=lambda: draw_garage_ceiling(),
+                          updater = None,
+                          transform=move_garage_ceiling(GARAGE_CEILING_OFFSET_X,
+                                                             GARAGE_CEILING_OFFSET_Y,
+                                                             GARAGE_CEILING_OFFSET_Z),
+                          state={"material" : GARAGE_MATERIAL})
+
     garage_door = Node("Garage Door",
                        geom=lambda: draw_garage_door(),
                        updater=Garage().door_updater,
@@ -515,14 +516,6 @@ def build_scene():
                        state={"toggle":False,
                               "rotation" : 0.0,
                               "open": False})
-
-    garage_ceiling = Node("Garage Ceiling",
-                          geom=lambda: draw_garage_door(),
-                          updater = None,
-                          transform=move_garage_ceiling(GARAGE_CEILING_OFFSET_X,
-                                                             GARAGE_CEILING_OFFSET_Y,
-                                                             GARAGE_CEILING_OFFSET_Z),
-                          state={"material" : GARAGE_MATERIAL})
 
     camera = Node("Camera",
                   updater=camera_updater,
@@ -611,8 +604,8 @@ def load_shader(vs_path, fs_path):
 def init_gl():
     global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, tex_garage, tex_garage_door, SHADER_PROGRAM
 
-    SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
-    glUseProgram(SHADER_PROGRAM)
+    #SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
+    #glUseProgram(SHADER_PROGRAM)
 
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_CULL_FACE)
@@ -659,10 +652,10 @@ def init_gl():
     tex_car = load_texture(CAR_TEXTURE_PATH, repeat=False)
     tex_terrain = load_texture(TERRAIN_TEXTURE_PATH, repeat=True)
     tex_wheel = load_texture(WHEEL_TEXTURE_PATH, repeat=False)
-    tex_steering_wheel = load_texture(STEERING_WHEEL_TEXTURE_PATH, repeat=False)
+    tex_steering_wheel = load_texture(STEERING_WHEEL_TEXTURE_PATH, repeat=True)
     tex_door = load_texture(DOOR_TEXTURE_PATH, repeat=False)
-    tex_garage = load_texture(GARAGE_TEXTURE_PATH, repeat = False)
-    tex_garage_door = load_texture(GARAGE_DOOR_TEXTURE_PATH, repeat = False)
+    tex_garage = load_texture(GARAGE_TEXTURE_PATH, repeat = True)
+    tex_garage_door = load_texture(GARAGE_DOOR_TEXTURE_PATH, repeat = True)
 
 def reshape(w, h):
     global WIN_W, WIN_H, FOV
@@ -682,8 +675,6 @@ def display():
 
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
-
-    #glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -1.0, 0.0))
 
     # Câmara
     update_camera()
@@ -727,12 +718,10 @@ def keyboard(key, x, y):
     if key == b'+':
         camera_height = max(4.0, round(camera_height - 0.8, 1))
         camera_distance = max(5.0, round(camera_distance - 1.0, 1))
-        #print(camera_height , "\n" , camera_distance)
 
     if key == b'-':
         camera_height = min(12.0, round(camera_height + 0.8, 1))
         camera_distance = min(15.0, round(camera_distance + 1.0, 1))
-        #print(camera_height , "\n" , camera_distance)
     
     if key == b'v':
         cam = SCENE.find("Camera").state
@@ -765,7 +754,6 @@ def special_down(key, x, y):
             cam_dx = -1
         if key == GLUT_KEY_LEFT:
             cam_dx = 1
-
 
 
 def idle():
