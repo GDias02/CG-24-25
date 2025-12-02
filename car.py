@@ -225,12 +225,14 @@ def move_steering_wheel(x,y,z):
         glScalef(radius,radius,radius)
     return _tf
 
+"""
 def move_car_light(x,y,z):
     def _tf(node):
         glTranslatef(x,y,z)
         rotation = node.state.get('rotation',0)
         glRotatef(rotation ,0,1,0)
     return _tf
+"""
 
 def move_car_door(x,y,z):
     def _tf(node):
@@ -352,12 +354,12 @@ class Garage:
             node.state['toggle'] = toggle_garage_door #this avoids door flickering
             node.state['open'] = not node.state.get('open', 0)
         node.state['rotation'] = door_rotation_cal()
-
+"""
 def update_headlight(node, dt):
     # apply light position in world space
     glLightfv(GL_LIGHT1, GL_POSITION, (0, 0, 0, 1.0))
     glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, (0, 0, 1))
-
+"""
 
 class Node:
     def __init__(self, name, geom=None, transform=None, updater=None, state=None):
@@ -523,7 +525,7 @@ def build_scene():
 
     world.add(
         terrain,
-        camera,
+        #camera, -> depends upon car, needs to be updated after car
         car.add(
             wheel_f_r,
             wheel_f_l, 
@@ -536,7 +538,8 @@ def build_scene():
         garage.add(
             garage_ceiling,
             garage_door,
-        )
+        ),
+        camera, #Camera depends upon car, therefore it should be "drawn/updated" after car has gone through it's updates
     )
 
     return world
@@ -573,7 +576,7 @@ def instance_materials():
     GARAGE_MATERIAL = Material(
         ambient=(0.1,0.1,0.1),
         diffuse=(0.7,0.7,0.7),
-        specular=(0.0,0.0,0.0),
+        specular=(0.1,0.1,0.1),
         shininess= 0
     )
 
@@ -620,7 +623,7 @@ def init_gl():
     glEnable(GL_LIGHT0)
     glLightfv(GL_LIGHT0, GL_AMBIENT,  (0.1, 0.1, 0.1, 1.0))
     
-    glEnable(GL_LIGHT1)
+    #glEnable(GL_LIGHT1)
     """
     glEnable(GL_LIGHT1) #luz do farol esquerdo
     glLightfv(GL_LIGHT1, GL_POSITION, (0.0, 9.0, 0.0))
@@ -632,7 +635,7 @@ def init_gl():
 
     glEnable(GL_LIGHT2) #luz de cima
     # White test light above the floor
-    glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 8, 0.0, 1.0))   # 1.0 → point light
+    glLightfv(GL_LIGHT2, GL_POSITION, (0.0, 2, 2.0, 1.0))   # 1.0 → point light
     glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, (0.0, -0.5, -1.0)) # pointing down
     glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0)
     glLightfv(GL_LIGHT2, GL_DIFFUSE,  (1.0, 1.0, 1.0, 1.0))
@@ -794,13 +797,13 @@ def camera_updater(node, dt):
         node.state["look"] = (cam_look[0] + cam_dx, cam_look[1], cam_look[2] + cam_dz)
 
     else:
-        cam_x = car_pos[0] + math.sin(rad) * 0.5
+        cam_x = car_pos[0]
         cam_y = car_pos[1] + 2.0
-        cam_z = car_pos[2] + math.cos(rad) * 0.5
+        cam_z = car_pos[2] 
 
         look_x = car_pos[0] + math.sin(rad) * 5.0
         look_y = car_pos[1] + 1.2
-        look_z = car_pos[2] + math.cos(rad) * 5.0
+        look_z = car_pos[2] + math.cos(rad) * 5.0 
 
         node.state["pos"] = (cam_x, cam_y, cam_z)
         node.state["look"] = (look_x, look_y, look_z)
