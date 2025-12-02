@@ -28,7 +28,7 @@ tex_door = None
 tex_garage = None
 tex_garage_door = None
 #extras
-tex_fountain = None
+tex_building = None
 
 # Default material
 DEFAULT_MATERIAL = Material(
@@ -135,7 +135,7 @@ def draw_wheel(radius):
 def draw_terrain():
     glBindTexture(GL_TEXTURE_2D, tex_terrain)
     glColor3f(1.0, 1.0, 1.0) #scale == size of floor; tex_repeat == how much the texture is reapeated 4 the floor
-    draw_mesh(TERRAIN_MODEL_PATH, scale=2, tex_repeat=(3.0,3.0)) 
+    draw_mesh(TERRAIN_MODEL_PATH, scale=15, tex_repeat=(20.0,20.0)) 
 
 def draw_steering_wheel():
     glBindTexture(GL_TEXTURE_2D, tex_steering_wheel)
@@ -187,10 +187,10 @@ def draw_garage_door():
     draw_mesh(GARAGE_DOOR_MODEL_PATH, scale=1)
 
 #EXTRAS
-def draw_fountain():
-    #glBindTexture(GL_TEXTURE_2D, tex_fountain)
+def draw_building():
+    glBindTexture(GL_TEXTURE_2D, tex_building)
     glColor3f(1.0,1.0,1.0)
-    draw_mesh("./models/Fountain.obj", scale=1)
+    draw_mesh("./models/building.obj", scale=100)
 
 def tf_scale(sx, sy, sz):
     def _tf(node):
@@ -533,9 +533,9 @@ def build_scene():
     #####EXTRAS
 
     fountain = Node("Fountain",
-                    geom=lambda: draw_fountain(),
+                    geom=lambda: draw_building(),
                     updater=None,
-                    transform=tf_translate(10.0, 0.0, -4.0),
+                    transform=tf_translate(-60.0, 0.0, 200.0),
                     state={"material" : DEFAULT_MATERIAL})
 
 
@@ -623,7 +623,7 @@ def load_shader(vs_path, fs_path):
 def init_gl():
     global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, tex_garage, tex_garage_door, SHADER_PROGRAM
     #extras
-    global tex_fountain
+    global tex_building
 
     SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
     glUseProgram(SHADER_PROGRAM)
@@ -678,7 +678,7 @@ def init_gl():
     tex_garage = load_texture(GARAGE_TEXTURE_PATH, repeat = False)
     tex_garage_door = load_texture(GARAGE_DOOR_TEXTURE_PATH, repeat = False)
     #extras:
-    tex_fountain = load_texture("./tex/Granite.jpg", repeat=False)
+    tex_building = load_texture("./tex/building.jpeg", repeat=True)
 
 def reshape(w, h):
     global WIN_W, WIN_H, FOV
