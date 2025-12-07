@@ -1,23 +1,8 @@
 # CG-24-25
 
 - Daniel Horta  | 1h
-- Guilherme Dias 57163 | 11h30
-- Yan Panichkin 61815 | 1h30
+- Guilherme Dias 57163 | 13h30
+- Yan Panichkin 61815 | 11h
 
-
-
-
-
-
-- TODO:
-    - Daniel
-        - Câmara
-    - Guilherme
-        - Iluminação (faróis e sol)
-        - Colocar o volante e fazê-lo rodar consoante as instruções do user
-        - Pôr uma antena   
-    - Yan 
-        - Materiais 
-        - Modelo do volante e antena
-
-câmara is hard coded and doesn't follow the car, but 0.0
+Demo: https://www.youtube.com/watch?v=jg0Z6rDMHkY
+Ler o documento word para mais informações
