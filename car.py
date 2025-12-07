@@ -37,7 +37,6 @@ DEFAULT_MATERIAL = Material(
     shininess=50.0
 )
 
-SHADER_PROGRAM = None
 CAR_MATERIAL = None
 WHEEL_MATERIAL = None
 TERRAIN_MATERIAL = None
@@ -577,35 +576,10 @@ def instance_materials():
         shininess= 0
     )
 
-def load_shader(vs_path, fs_path):
-    vs = glCreateShader(GL_VERTEX_SHADER)
-    fs = glCreateShader(GL_FRAGMENT_SHADER)
-
-    with open(vs_path, 'r') as f:
-        vs_src = f.read()
-    with open(fs_path, 'r') as f:
-        fs_src = f.read()
-
-    glShaderSource(vs, vs_src)
-    glShaderSource(fs, fs_src)
-
-    glCompileShader(vs)
-    glCompileShader(fs)
-
-    prog = glCreateProgram()
-    glAttachShader(prog, vs)
-    glAttachShader(prog, fs)
-    glLinkProgram(prog)
-
-    return prog
-
 
 # Setup do OpenGL
 def init_gl():
-    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, tex_garage, tex_garage_door, SHADER_PROGRAM
-
-    #SHADER_PROGRAM = load_shader("vertex_shader.glsl", "fragment_shader.glsl")
-    #glUseProgram(SHADER_PROGRAM)
+    global tex_car, tex_terrain, tex_wheel, tex_steering_wheel, tex_door, tex_garage, tex_garage_door
 
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_CULL_FACE)
