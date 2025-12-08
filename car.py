@@ -751,11 +751,18 @@ def camera_updater(node, dt):
         node.state["look"] = (car_pos[0], car_pos[1], car_pos[2])
 
     elif(mode == 1):
-        cam_pos = node.state["pos"]
-        cam_look = node.state["look"]
+        fx = node.state["look"][0] - node.state["pos"][0]
+        fz = node.state["look"][2] - node.state["pos"][2]
+        flen = math.sqrt(fx*fx + fz*fz) or 1
+        forward = (fx/flen, 0, fz/flen)
+        right = (forward[2], 0, -forward[0])
 
-        node.state["pos"] = (cam_pos[0] + cam_dx, cam_pos[1], cam_pos[2] + cam_dz)
-        node.state["look"] = (cam_look[0] + cam_dx, cam_look[1], cam_look[2] + cam_dz)
+        move_x = right[0] * cam_dx + forward[0] * cam_dz
+        move_z = right[2] * cam_dx + forward[2] * cam_dz
+
+        node.state["pos"] = (node.state["pos"][0] + move_x, node.state["pos"][1], node.state["pos"][2] + move_z)
+
+        node.state["look"] = (node.state["look"][0] + move_x, node.state["look"][1], node.state["look"][2] + move_z)
 
     else:
         cam_x = car_pos[0]
