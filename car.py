@@ -624,7 +624,7 @@ def display():
     glLoadIdentity()
 
     # Câmara
-    update_camera()
+    update_camera() #glulookat
 
     # Iluminação
     glEnable(GL_LIGHT0) #luz ambiente
