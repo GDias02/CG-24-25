@@ -694,12 +694,10 @@ def keyboard(key, x, y):
     if key == b'+':
         camera_height = max(4.0, round(camera_height - 0.8, 1))
         camera_distance = max(5.0, round(camera_distance - 1.0, 1))
-        print(camera_height , "\n" , camera_distance)
 
     if key == b'-':
         camera_height = min(12.0, round(camera_height + 0.8, 1))
         camera_distance = min(15.0, round(camera_distance + 1.0, 1))
-        print(camera_height , "\n" , camera_distance)
     
     if key == b'v':
         cam = SCENE.find("Camera").state
@@ -758,6 +756,8 @@ def camera_updater(node, dt):
     rad = math.radians(car_theta)
 
     if(mode == 0):
+        camera_height = 8.0
+        camera_distance = 10.0
         cam_x = car_pos[0] - math.sin(rad) * camera_distance
         cam_y = car_pos[1] + camera_height
         cam_z = car_pos[2] - math.cos(rad) * camera_distance
